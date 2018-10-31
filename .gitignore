@@ -3,6 +3,7 @@
 /Jenkinsfiles/Jenkinsfile-*
 /Jenkinsfiles/JenkinsfileSGX-*
 
+.lib
 *.i
 *.s
 *.e
