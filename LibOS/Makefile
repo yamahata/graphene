@@ -9,9 +9,9 @@ SHIM_DIR = shim
 BUILD_DIR = glibc-build
 GLIBC_TARGET = $(addprefix $(BUILD_DIR)/,libc.so.6 ld-linux-x86-64.so.2 libpthread.so.0 libm.so.6 libdl.so.2 libutil.so.1 crt1.o crti.o crtn.o liblibos.so.1 libnss_dns.so.2 libresolv.so.2)
 
-.PHONY: all
-all: $(GLIBC_TARGET)
-	$(MAKE) -C $(SHIM_DIR) all
+.PHONY: all regression
+all regression: $(GLIBC_TARGET)
+	$(MAKE) -C $(SHIM_DIR) $@
 
 .PHONY: format
 format:
