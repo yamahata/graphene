@@ -54,9 +54,8 @@ long getcpu(unsigned *cpu, struct getcpu_cache *unused)
 
 
 /* graphene specific symbols */
-unsigned int __vdso_glibc_version = GLIBC_VERSION;
-extern unsigned int glibc_version
-__attribute__((weak, alias("__vdso_glibc_version")));
+const int __vdso_glibc_version = GLIBC_VERSION;
+extern int glibc_version __attribute__((weak, alias("__vdso_glibc_version")));
 
 
 /* notes section: .note.Linux */
