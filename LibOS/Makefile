@@ -57,7 +57,11 @@ ifeq ($(shell git ls-files $(GLIBC_SRC)/configure),)
 GLIBC_PATCHES = \
 	$(GLIBC_SRC).patch \
 	glibc-fix-warning.patch \
-	glibc-no-pie.patch
+	glibc-no-pie.patch \
+	01-glibc-gettimeofday.patch \
+	02-glibc-sched-getscpu-S.patch \
+	03-glibc-time-c.patch \
+	04-pthread-cond-timedwait-S.patch
 
 $(GLIBC_SRC)/configure: $(GLIBC_PATCHES) Makefile
 	[ -f $(GLIBC_SRC).tar.gz ] || \
