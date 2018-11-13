@@ -1,19 +1,20 @@
 /* -*- mode:c; c-file-style:"k&r"; c-basic-offset: 4; tab-width:4; indent-tabs-mode:nil; mode:auto-fill; fill-column:78; -*- */
 /* vim: set ts=4 sw=4 et tw=78 fo=cqt wm=0: */
 
+#include <asm/fcntl.h>
+#include <asm/socket.h>
+#include <asm/unistd.h>
+#include <linux/fs.h>
+#include <linux/in.h>
+#include <linux/in6.h>
+#include <asm/errno.h>
+
 #include <pal_linux.h>
 #include <pal_rtld.h>
 #include "sgx_internal.h"
 #include "sgx_tls.h"
 #include "sgx_enclave.h"
 #include "debugger/sgx_gdb.h"
-
-#include <asm/fcntl.h>
-#include <asm/socket.h>
-#include <linux/fs.h>
-#include <linux/in.h>
-#include <linux/in6.h>
-#include <asm/errno.h>
 
 #include <sysdep.h>
 #include <sysdeps/generic/ldsodefs.h>
@@ -104,11 +105,8 @@ int scan_enclave_binary (int fd, unsigned long * base, unsigned long * size,
 {
     int ret = 0;
 
-    if (IS_ERR(ret = INLINE_SYSCALL(lseek, 3, fd, 0, SEEK_SET)))
-        return -ERRNO(ret);
-
     char filebuf[FILEBUF_SIZE];
-    ret = INLINE_SYSCALL(read, 3, fd, filebuf, FILEBUF_SIZE);
+    ret = INLINE_SYSCALL(pread, 4, fd, filebuf, FILEBUF_SIZE, 0);
     if (IS_ERR(ret))
         return -ERRNO(ret);
 
@@ -144,11 +142,8 @@ int load_enclave_binary (sgx_arch_secs_t * secs, int fd,
 {
     int ret = 0;
 
-    if (IS_ERR(ret = INLINE_SYSCALL(lseek, 3, fd, 0, SEEK_SET)))
-        return -ERRNO(ret);
-
     char filebuf[FILEBUF_SIZE];
-    ret = INLINE_SYSCALL(read, 3, fd, filebuf, FILEBUF_SIZE);
+    ret = INLINE_SYSCALL(pread, 4, fd, filebuf, FILEBUF_SIZE, 0);
     if (IS_ERR(ret))
         return -ERRNO(ret);
 
@@ -595,7 +590,11 @@ static void create_instance (struct pal_sec * pal_sec)
 int load_manifest (int fd, struct config_store ** config_ptr)
 {
     int retval = -EINVAL;
-    int nbytes = INLINE_SYSCALL(lseek, 3, fd, 0, SEEK_END);
+    struct stat stat;
+    int ret = INLINE_SYSCALL(fstat, 2, fd, &stat);
+    if (IS_ERR(ret))
+        return -ERRNO(ret);
+    int nbytes = stat.st_size;
 
     if (IS_ERR(nbytes))
         return -ERRNO(nbytes);
@@ -620,7 +619,7 @@ int load_manifest (int fd, struct config_store ** config_ptr)
     config->free     = NULL;
 
     const char * errstring = NULL;
-    int ret = read_config(config, NULL, &errstring);
+    ret = read_config(config, NULL, &errstring);
 
     if (ret < 0) {
         SGX_DBG(DBG_E, "can't read manifest: %s\n", errstring);
