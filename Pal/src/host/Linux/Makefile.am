@@ -8,7 +8,8 @@ AR	= ar rcs
 LD	= ld
 
 CFLAGS	= -Wall -fPIC -O2 -std=c11 -U_FORTIFY_SOURCE \
-	  -fno-stack-protector -fno-builtin
+	  -fno-stack-protector -fno-builtin \
+	  -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx
 
 EXTRAFLAGS = -Wextra -Wno-sign-compare
 
