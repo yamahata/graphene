@@ -1488,6 +1488,9 @@ int remove_loaded_libraries (void)
 void * __load_address;
 void * migrated_shim_addr __attribute_migratable = &__load_address;
 
+extern long syscalldb(
+    long a0, long a1, long a2, long a3, long a4, long a5, long a6);
+
 static int init_vdso_map(void)
 {
     __load_elf_object(NULL, vdso_so, OBJECT_VDSO, NULL);
@@ -1518,6 +1521,10 @@ static int init_vdso_map(void)
         {
             .name = "__vdso_getcpu",
             .value = (uintptr_t)&__shim_getcpu,
+        },
+        {
+            .name = "__vdso_syscalldb",
+            .value = (uintptr_t)&syscalldb,
         }
     };
     for (int i = 0; i < sizeof(vsyms)/sizeof(vsyms[0]); i++) {
