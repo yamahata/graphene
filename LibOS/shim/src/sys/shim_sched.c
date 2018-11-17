@@ -48,3 +48,9 @@ int shim_do_sched_getaffinity (pid_t pid, size_t len,
         ((uint8_t *) user_mask_ptr)[i / 8] |= 1 << (i % 8);
     return ncpus;
 }
+
+int shim_do_sched_setaffinity(pid_t pid, size_t len,
+                              __kernel_cpu_set_t * user_mask_ptr)
+{
+    return 0;
+}
