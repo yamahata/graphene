@@ -8,16 +8,16 @@ SGX_GET_TOKEN = $(SGX_DIR)/signer/pal-sgx-get-token
 
 ifeq ($(SGX_RUN),1)
 
-expand_target = $(foreach t,$(filter-out manifest,$(1)),$(patsubst %.manifest,%,$(t)).token)
+expand_target = $(foreach t,$(filter-out manifest,$(1)),$(patsubst %.manifest,%.token,$(t)))
 
 %.token: %.sig
-	@echo [ Token: $(patsubst %.token,%,$@) ]
-	@$(SGX_GET_TOKEN) -output $@ -sig $(patsubst %.token,%.sig,$@)
+	@echo [ Token: $(basename $@) ]
+	@$(SGX_GET_TOKEN) -output $@ -sig %^
 
 else
 
 expand_target = $(1) $(foreach t,$(filter-out manifest,$(1)), \
-		$(patsubst %.manifest,%,$(t)).manifest.sgx) *.sig *.token
+		$(patsubst %.manifest,%.manifest.sgx,$(t))) *.sig *.token
 
 $(SGX_SIGNER_KEY):
 	$(error "Cannot find any enclave key. Generate $(abspath $(SGX_SIGNER_KEY)) or specify 'SGX_SIGNER_KEY=' with make")
