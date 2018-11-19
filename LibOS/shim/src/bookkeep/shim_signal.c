@@ -624,6 +624,8 @@ void handle_signal (bool delayed_only)
     if (!thread || !thread->has_signal.counter)
         return;
 
+    debug("handle signal (counter = %d)\n", thread->has_signal.counter);
+
     __disable_preempt(tcb);
 
     if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1) {
