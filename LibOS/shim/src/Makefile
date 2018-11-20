@@ -87,6 +87,8 @@ libsysdb_debug.so: $(addsuffix .o,$(objs)) \
 	@mkdir -p .lib
 	cp -f $< $@
 
+sys/shim_sched.o: CFLAGS += -I../../../Pal/src/host/$(PAL_HOST)/ -I../../../Pal/include
+
 .PHONY: $(graphene_lib)
 $(graphene_lib): .lib/host_endian.h
 	$(MAKE) -C ../../../Pal/lib target=$(abspath .lib)/

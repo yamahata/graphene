@@ -398,6 +398,13 @@ DkThreadExit (void);
 PAL_BOL
 DkThreadResume (PAL_HANDLE thread);
 
+PAL_NUM
+DkThreadGetAffinity(PAL_HANDLE threadHandle, PAL_NUM cpuSetSize,
+                    PAL_PTR mask);
+void DkThreadSetAffinity(PAL_HANDLE threadHandle, PAL_NUM cpuSetSize,
+                         const PAL_PTR mask);
+
+
 /* Exception Handling */
 /* Div-by-zero */
 #define PAL_EVENT_DIVZERO       1

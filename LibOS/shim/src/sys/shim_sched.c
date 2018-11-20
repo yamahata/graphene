@@ -25,10 +25,15 @@
 
 #include <shim_internal.h>
 #include <shim_table.h>
+#include <shim_thread.h>
 #include <api.h>
 #include <pal.h>
 
 #include <errno.h>
+
+#undef DO_SYSCALL
+#include "sysdep-x86_64.h"
+#include <asm/unistd.h>
 
 int shim_do_sched_yield (void)
 {
@@ -36,18 +41,36 @@ int shim_do_sched_yield (void)
     return 0;
 }
 
+static struct shim_thread * get_thread_by_pid(pid_t pid)
+{
+    if (pid == 0)
+        return get_cur_thread();
+    return lookup_thread(pid);
+}
+
 int shim_do_sched_getaffinity (pid_t pid, size_t len,
                                __kernel_cpu_set_t * user_mask_ptr)
 {
+#if 0
     int ncpus = PAL_CB(cpu_info.cpu_num);
     memset(user_mask_ptr, 0, len);
     for (int i = 0 ; i < ncpus ; i++)
         ((uint8_t *) user_mask_ptr)[i / 8] |= 1 << (i % 8);
-    return ncpus;
+    return ((ncpu + sizeof(long) * 8 - 1)) / (sizeof(long) * 8) * sizeof(long);
+#else
+    struct shim_thread * thread = get_thread_by_pid(pid);
+    if (!thread)
+        return -ESRCH;
+    return DkThreadGetAffinity(thread->pal_handle, len, user_mask_ptr);
+#endif
 }
 
 int shim_do_sched_setaffinity(pid_t pid, size_t len,
                               __kernel_cpu_set_t * user_mask_ptr)
 {
+    struct shim_thread * thread = get_thread_by_pid(pid);
+    if (!thread)
+        return -ESRCH;
+    DkThreadSetAffinity(thread->pal_handle, len, user_mask_ptr);
     return 0;
 }
