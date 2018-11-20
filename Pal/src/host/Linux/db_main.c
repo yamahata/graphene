@@ -414,6 +414,11 @@ void _DkGetCPUInfo (PAL_CPU_INFO * ci)
     if (!memcmp(vendor_id, "GenuineIntel", 12)) {
         cpuid(4, 0, words);
         ci->cpu_num  = BIT_EXTRACT_LE(words[WORD_EAX], 26, 32) + 1;
+        // when it's possible
+        // XXX -eax = 0xb ecx = 1
+        // logical processors at this level
+        cpuid(0xb, 1, words);
+        ci->cpu_num  = BIT_EXTRACT_LE(words[WORD_EBX], 0, 16);
     } else if (!memcmp(vendor_id, "AuthenticAMD", 12)) {
         cpuid(0x8000008, 0, words);
         ci->cpu_num  = BIT_EXTRACT_LE(words[WORD_EAX], 0, 8) + 1;
