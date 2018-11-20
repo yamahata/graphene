@@ -7,3 +7,21 @@
 *.i
 *.s
 *.e
+
+# gnu global
+GPATH
+GTAGS
+GSYMS
+GRTAGS
+
+
+# tags/etags
+tags
+TAGS
+
+# cscope
+cscope.*
+ncscope.*
+
+# cflow
+cflow*.*
