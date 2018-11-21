@@ -685,6 +685,20 @@ static int sgx_ocall_sched_setaffinity(void * pms)
     return IS_ERR(ret) ? unix_to_pal_error(ERRNO(ret)) : ret;
 }
 
+static int sgx_ocall_rdtsc(void * pms)
+{
+    ms_ocall_rdtsc_t * ms = (ms_ocall_rdtsc_t *) pms;
+    ODEBUG(OCALL_RDTSC, ms);
+    unsigned long low;
+    unsigned long high;
+
+    __asm__ volatile ("rdtsc": "=a"(low), "=d"(high));
+
+    ms->low = low;
+    ms->high = high;
+    return 0;
+}
+
 void * ocall_table[OCALL_NR] = {
         [OCALL_EXIT]            = (void *) sgx_ocall_exit,
         [OCALL_PRINT_STRING]    = (void *) sgx_ocall_print_string,
@@ -725,6 +739,7 @@ void * ocall_table[OCALL_NR] = {
         [OCALL_LOAD_DEBUG]      = (void *) sgx_ocall_load_debug,
         [OCALL_SCHED_GETAFFINITY] = (void *) sgx_ocall_sched_getaffinity,
         [OCALL_SCHED_SETAFFINITY] = (void *) sgx_ocall_sched_setaffinity,
+        [OCALL_RDTSC]           = (void *) sgx_ocall_rdtsc,
     };
 
 #define EDEBUG(code, ms) do {} while (0)
