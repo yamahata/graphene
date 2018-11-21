@@ -795,3 +795,35 @@ int ocall_load_debug(const char * command)
     OCALL_EXIT();
     return retval;
 }
+
+int ocall_sched_getaffinity(
+    unsigned long pid, size_t cpusetsize, unsigned long * mask)
+{
+    int retval = 0;
+    ms_ocall_sched_getaffinity_t * ms;
+    OCALLOC(ms, ms_ocall_sched_getaffinity_t *, sizeof(*ms) + cpusetsize);
+    ms->pid = pid;
+    ms->cpusetsize = cpusetsize;
+    ms->mask = ms->mask_bits;
+
+    retval = SGX_OCALL(OCALL_SCHED_GETAFFINITY, ms);
+    if (retval > 0)
+        COPY_FROM_USER(mask, ms->mask, retval);
+    OCALL_EXIT();
+    return retval;
+}
+
+int ocall_sched_setaffinity(
+    unsigned long pid, size_t cpusetsize, const unsigned long * mask)
+{
+    int retval = 0;
+    ms_ocall_sched_setaffinity_t * ms;
+    OCALLOC(ms, ms_ocall_sched_setaffinity_t *, sizeof(*ms));
+    ms->pid = pid;
+    ms->cpusetsize = cpusetsize;
+    ms->mask = COPY_TO_USER(mask, cpusetsize);
+
+    retval = SGX_OCALL(OCALL_SCHED_SETAFFINITY, ms);
+    OCALL_EXIT();
+    return retval;
+}
