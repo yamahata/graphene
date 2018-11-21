@@ -57,6 +57,7 @@ enum {
     OCALL_LOAD_DEBUG,
     OCALL_SCHED_GETAFFINITY,
     OCALL_SCHED_SETAFFINITY,
+    OCALL_RDTSC,
     OCALL_NR,
 };
 
@@ -278,5 +279,11 @@ typedef struct {
     size_t cpusetsize;
     const unsigned long * mask;
 } ms_ocall_sched_setaffinity_t;
+
+typedef struct
+{
+    unsigned long low;
+    unsigned long high;
+} ms_ocall_rdtsc_t;
 
 #pragma pack(pop)
