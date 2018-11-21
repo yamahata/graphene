@@ -28,6 +28,7 @@
 #include "pal.h"
 #include "pal_internal.h"
 #include "pal_linux.h"
+#include "pal_linux_error.h"
 #include "pal_error.h"
 #include "pal_debug.h"
 #include "api.h"
@@ -138,3 +139,25 @@ int _DkThreadGetCurrent (PAL_HANDLE * threadHandle)
 struct handle_ops thread_ops = {
     /* nothing */
 };
+
+int _DkThreadGetAffinity(PAL_HANDLE threadHandle, PAL_NUM cpuSetSize,
+                         PAL_PTR mask)
+{
+    int ret = ocall_sched_getaffinity(threadHandle->thread.tid,
+                                      cpuSetSize, mask);
+    if (IS_ERR(ret))
+        return -unix_to_pal_error(ERRNO(ret));
+
+    return ret;
+}
+
+int _DkThreadSetAffinity(PAL_HANDLE threadHandle, PAL_NUM cpuSetSize,
+                         const PAL_PTR mask)
+{
+    int ret = ocall_sched_setaffinity(threadHandle->thread.tid,
+                                      cpuSetSize, mask);
+    if (IS_ERR(ret))
+        return -unix_to_pal_error(ERRNO(ret));
+
+    return ret;
+}
