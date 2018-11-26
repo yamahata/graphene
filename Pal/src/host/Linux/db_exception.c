@@ -130,7 +130,7 @@ static int get_event_num (int signum)
     }
 }
 
-void _DkGenericEventTrigger (PAL_IDX event_num, PAL_EVENT_HANDLER upcall,
+static void _DkGenericEventTrigger (PAL_IDX event_num, PAL_EVENT_HANDLER upcall,
                              PAL_NUM arg, ucontext_t * uc)
 {
     PAL_EVENT event;
