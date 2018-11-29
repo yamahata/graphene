@@ -158,5 +158,9 @@ CLEAN_FILES += \
 	vdso/vdso.so \
 	vdso/vdso-data.c
 
+syscallas.S: asm-offsets.h
+
+include ../../../Makefile.rules
+
 clean:
 	rm -rf $(addsuffix .o,$(objs)) $(shim_target) $(files_to_build) .lib $(CLEAN_FILES)
