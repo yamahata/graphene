@@ -148,5 +148,9 @@ vdso/vdso-data.c: vdso/vdso.so
 	@echo [ $@ ]
 	xxd -i $^ | sed -e 's/vdso_vdso_/vdso_/' -e 's/\[\]/[4096]/' -e 's/= {/__attribute__((aligned(4096))) = {/' > $@
 
+syscallas.S: asm-offsets.h
+
+include ../../../Makefile.rules
+
 clean:
-	rm -rf $(addsuffix .o,$(objs)) $(shim_target) .lib
+	rm -rf $(addsuffix .o,$(objs)) $(shim_target) .lib $(CLEAN_FILES)
