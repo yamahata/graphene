@@ -433,6 +433,7 @@ DkSetExceptionHandler (PAL_EVENT_HANDLER handler, PAL_NUM event,
                        PAL_FLG flags);
 
 void DkExceptionReturn (PAL_PTR event);
+PAL_BOL DkInPal(const PAL_CONTEXT * context);
 
 
 /* parameter: keeping int threadHandle for now (to be in sync with the paper).
