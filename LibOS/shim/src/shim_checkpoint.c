@@ -1460,7 +1460,7 @@ void restore_context (struct shim_context * context)
     regs[nregs] = (void *) context->sp;
     /* don't clobber redzone. If sigaltstack is used,
      * this area won't be clobbered by signal context */
-    *(void **) (context->sp - 128 - 8) = context->ret_ip;
+    *(void **) (context->sp - REDZONE_SIZE - 8) = context->ret_ip;
 
     /* Ready to resume execution, re-enable preemption. */
     shim_tcb_t * tcb = SHIM_GET_TLS();
@@ -1468,23 +1468,23 @@ void restore_context (struct shim_context * context)
 
     memset(context, 0, sizeof(struct shim_context));
 
-    asm volatile("movq %0, %%rsp\r\n"
-                 "popq %%r15\r\n"
-                 "popq %%r14\r\n"
-                 "popq %%r13\r\n"
-                 "popq %%r12\r\n"
-                 "popq %%r11\r\n"
-                 "popq %%r10\r\n"
-                 "popq %%r9\r\n"
-                 "popq %%r8\r\n"
-                 "popq %%rcx\r\n"
-                 "popq %%rdx\r\n"
-                 "popq %%rsi\r\n"
-                 "popq %%rdi\r\n"
-                 "popq %%rbx\r\n"
-                 "popq %%rbp\r\n"
-                 "popq %%rsp\r\n"
-                 "movq $0, %%rax\r\n"
-                 "jmp *-128-8(%%rsp)\r\n"
-                 :: "g"(&regs) : "memory");
+    __asm__ volatile("movq %0, %%rsp\r\n"
+                     "movq $0, %%rax\r\n"
+                     "popq %%r15\r\n"
+                     "popq %%r14\r\n"
+                     "popq %%r13\r\n"
+                     "popq %%r12\r\n"
+                     "popq %%r11\r\n"
+                     "popq %%r10\r\n"
+                     "popq %%r9\r\n"
+                     "popq %%r8\r\n"
+                     "popq %%rcx\r\n"
+                     "popq %%rdx\r\n"
+                     "popq %%rsi\r\n"
+                     "popq %%rdi\r\n"
+                     "popq %%rbx\r\n"
+                     "popq %%rbp\r\n"
+                     "popq %%rsp\r\n"
+                     "jmp * -" XSTRINGIFY(REDZONE_SIZE) " -8(%%rsp)\r\n"
+                     :: "g"(&regs) : "memory");
 }
