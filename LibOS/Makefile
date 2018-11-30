@@ -21,7 +21,18 @@ ifeq ($(findstring x86_64,$(SYS))$(findstring linux,$(SYS)),x86_64linux)
 
 .SECONDARY: $(BUILD_DIR)/Build.success
 
-$(BUILD_DIR)/Build.success: $(BUILD_DIR)/Makefile
+GLIBC_ADDED_FILES = \
+        $(GLIBC_SRC)/syscallas.S \
+        $(GLIBC_SRC)/syscalldb.c \
+        $(GLIBC_SRC)/syscalldb.h \
+        $(GLIBC_SRC)/libos/Makefile \
+        $(GLIBC_SRC)/libos/Versions \
+        $(GLIBC_SRC)/libos/benchmark.c \
+        $(GLIBC_SRC)/libos/checkpoint.c \
+        $(GLIBC_SRC)/libos/msgpersist.c \
+        $(GLIBC_SRC)/libos/sandbox.c
+
+$(BUILD_DIR)/Build.success: $(BUILD_DIR)/Makefile $(GLIBC_ADDED_FILES)
 	@echo "Building glibc, may take a while to finish. Warning messages may show up. If this process terminates with failures, see \"$(BUILD_DIR)/build.log\" for more information."
 	cd $(BUILD_DIR) && ($(MAKE) 2>&1 >> build.log) && touch Build.success
 #  2>&1 | tee -a build.log)
