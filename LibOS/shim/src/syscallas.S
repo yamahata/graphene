@@ -29,6 +29,8 @@
         .global syscalldb
         .type syscalldb, @function
         .extern shim_table, debug_unsupp
+	.global syscall_wrapper
+        .type syscall_wrapper, @function
 
         .global __syscallas_signal_allowed_0_begin
         .global __syscallas_signal_allowed_0_end
@@ -36,6 +38,8 @@
         .global __syscallas_signal_allowed_1_end
         .global __syscallas_signal_allowed_2_begin
         .global __syscallas_signal_allowed_2_end
+        .global __syscallas_signal_allowed_3_begin
+        .global __syscallas_signal_allowed_3_end
         .global __syscallas_need_emulate_jmp
         .type __syscallas_signal_allowed_0_begin, @object
         .type __syscallas_signal_allowed_0_end, @object
@@ -43,6 +47,8 @@
         .type __syscallas_signal_allowed_1_end, @object
         .type __syscallas_signal_allowed_2_begin, @object
         .type __syscallas_signal_allowed_2_end, @object
+        .type __syscallas_signal_allowed_3_begin, @object
+        .type __syscallas_signal_allowed_3_end, @object
         .type __syscallas_need_emulate_jmp, @object
 
 .macro CLEAR_SAVED_AREA_IN_SHIM_TLS
@@ -145,7 +151,7 @@ isundef:
         mov %rax, %rdi
         call *debug_unsupp@GOTPCREL(%rip)
 #endif
-        movq $-38, %rax
+        movq $-38, %rax		# ENOSYS = 38
         jmp ret
 __syscallas_signal_allowed_1_end:
 
@@ -248,3 +254,18 @@ __syscallas_signal_allowed_2_begin:
 __syscallas_need_emulate_jmp:
         jmp *-128-8(%rsp)
 __syscallas_signal_allowed_2_end:
+
+        /*
+         * syscall_wrapper
+         * input:
+         * %rcx: return address. instruction rigth after syscall instruction
+         */
+__syscallas_signal_allowed_3_begin:
+syscall_wrapper:
+        subq $128, %rsp
+        pushq %rcx
+        call *syscalldb@GOTPCREL(%rip)
+        popq %rcx
+        addq $128, %rsp
+        jmp *%rcx       /* syscalldb preserves %rcx */
+__syscallas_signal_allowed_3_end:

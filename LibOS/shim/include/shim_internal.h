@@ -177,6 +177,7 @@ void handle_signal (bool delayed_only);
 int handle_next_signal(ucontext_t * user_uc);
 long convert_pal_errno (long err);
 void __sigreturn(mcontext_t * user_uc);
+void syscall_wrapper(void);
 
 #define PAL_ERRNO  convert_pal_errno(PAL_NATIVE_ERRNO)
 
@@ -743,6 +744,8 @@ extern void * __syscallas_signal_allowed_1_begin;
 extern void * __syscallas_signal_allowed_1_end;
 extern void * __syscallas_signal_allowed_2_begin;
 extern void * __syscallas_signal_allowed_2_end;
+extern void * __syscallas_signal_allowed_3_begin;
+extern void * __syscallas_signal_allowed_3_end;
 extern void * __syscallas_need_emulate_jmp;
 
 int shim_clean (void);

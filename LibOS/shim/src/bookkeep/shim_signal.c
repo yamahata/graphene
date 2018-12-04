@@ -233,7 +233,9 @@ static inline bool is_signal_allowed(const PAL_CONTEXT * context)
             ((void *) &__syscallas_signal_allowed_1_begin <= ip &&
              ip < (void *) &__syscallas_signal_allowed_1_end) ||
             ((void *) &__syscallas_signal_allowed_2_begin <= ip &&
-             ip < (void *) &__syscallas_signal_allowed_2_end));
+             ip < (void *) &__syscallas_signal_allowed_2_end) ||
+            ((void *) &__syscallas_signal_allowed_3_begin <= ip &&
+             ip < (void *) &__syscallas_signal_allowed_3_end));
 }
 
 static inline bool is_sigreturn_jmp_emulation(const PAL_CONTEXT * context)
@@ -442,8 +444,33 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
         if (context)
             debug("illegal instruction at %p\n", context->IP);
 
-        deliver_signal(event, ALLOC_SIGINFO(SIGILL, ILL_ILLOPC,
-                                            si_addr, (void *) arg), context);
+        uint8_t * rip = (uint8_t*)context->IP;
+        /* syscall 0x0f 0x05 */
+        if (rip[-2] == 0x0f && rip[-1] == 0x05) {
+            /*
+             * SIGSYS case
+             * rip points to the address after syscall instruction
+             * %rcx: see the syscall_wrapper in syscallas.S
+             * TODO: check SIGSYS
+             */
+            context->rcx = (long)rip;
+            context->rip = (long)&syscall_wrapper;
+            // uc->uc_mcontext->gregs[REG_RCX] = (long)rip;
+            // uc->uc_mcontext->gregs[REG_RIP] = (long)&syscall_wrapper;
+        } else if (rip[0] == 0x0f && rip[1] == 0x05) {
+            /*
+             * SIGILL case: this can happen in enclave
+             * %rcx: see the syscall_wrapper in syscallas.S
+             * TODO: check SIGILL and ILL_ILLOPN
+             */
+            context->rcx = (long)rip + 2;
+            context->rip = (long)&syscall_wrapper;
+            // uc->uc_mcontext->gregs[REG_RCX] = (long)rip + 2;
+            // uc->uc_mcontext->gregs[REG_RIP] = (long)&syscall_wrapper;
+        } else {
+            deliver_signal(event, ALLOC_SIGINFO(SIGILL, ILL_ILLOPC,
+                                                si_addr, (void *) arg), context);
+        }
     } else {
         internal_fault("Internal illegal fault", arg, context);
     }
