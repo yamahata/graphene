@@ -147,7 +147,12 @@ vdso/vdso.so: vdso/vdso.so.dbg
 vdso/vdso-data.c: vdso/vdso.so
 	@echo [ $@ ]
 	xxd -i $^ | sed -e 's/vdso_vdso_/vdso_/' -e 's/\[\]/[4096]/' -e 's/= {/__attribute__((aligned(4096))) = {/' > $@
-CLEAN_FILES += vdso/vdso.so.dbg vdso/vdso.so vdso/vdso-data.c asm-offsets.h
+
+CLEAN_FILES += \
+	vdso/vdso.o \
+	vdso/vdso.so.dbg \
+	vdso/vdso.so \
+	vdso/vdso-data.c
 
 syscallas.S: asm-offsets.h
 
