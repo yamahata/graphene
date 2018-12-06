@@ -21,6 +21,8 @@ escsq = $(subst $(squote),'\$(squote)',$1)
 echo-cmd = $(if $($(quiet)cmd_$(1)), echo '  $(call escsq,$($(quiet)cmd_$(1)))';)
 cmd = @$(echo-cmd) $(cmd_$(1))
 
+quiet_cmd_ln_sf = LN $@
+      cmd_ln_sf = ln -sf $(abspath $<) $@
 
 quiet_cmd_asm_offsets_s = [ $@ ]
       cmd_asm_offsets_s = $(CC) $(CFLAGS) $(defs) -S $< -o $@
