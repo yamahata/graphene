@@ -89,6 +89,9 @@ debugger/sgx_gdb.so: debugger/sgx_gdb.c debugger/sgx_gdb.h sgx_arch.h
 sgx-driver/isgx_version.h:
 	$(MAKE) -C sgx-driver $(notdir $<)
 
+CLEAN_FILES += $(notdir $(pal_static) $(pal_lib) $(pal_sec) $(pal_loader))
+CLEAN_FILES += debugger/sgx_gdb.o
+
 .PHONY: clean
 clean:
-	rm -f *.o *.e *.i *.s $(host_files)
+	rm -f *.o *.e *.i *.s $(host_files) $(CLEAN_FILES)
