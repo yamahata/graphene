@@ -159,4 +159,4 @@ syscallas.S: asm-offsets.h
 include ../../../Makefile.rules
 
 clean:
-	rm -rf $(addsuffix .o,$(objs)) $(shim_target) .lib $(CLEAN_FILES)
+	rm -rf $(addsuffix .o,$(objs)) $(shim_target) $(files_to_build) .lib $(CLEAN_FILES)
