@@ -291,6 +291,7 @@ void pal_linux_main (void * args)
     file->file.fd = fd;
     file->file.append = false;
     file->file.pass = false;
+    file->file.map_start = 0;
     char * path = (void *) file + HANDLE_SIZE(file);
     get_norm_path(argv[0], path, 0, len + 1);
     file->file.realpath = path;
