@@ -59,17 +59,14 @@ allocate_signal_log (struct shim_thread * thread, int sig)
 
     atomic_inc(&thread->has_signal);
 
-#if 0
-    // TODO: XXX ??? why thread->tcb seems stale?
     if (thread->tcb)
-        set_bit(SHIM_FLAG_SIGPENDING, &(((shim_tcb_t*)thread->tcb)->flags));
-#endif
+        set_bit(SHIM_FLAG_SIGPENDING, &thread->tcb->shim_tcb.flags);
 
     debug("signal set_bit thread: %p tcb: %p &tcb->flags: %p tcb->flags 0x%x "
           "tcb->tid %d counter = %d\n",
           thread, thread->tcb, &(((shim_tcb_t*)thread->tcb)->flags),
           ((shim_tcb_t*)thread->tcb)->flags, ((shim_tcb_t*)thread->tcb)->tid,
-        thread->has_signal.counter);
+          thread->has_signal.counter);
 
     return &log->logs[old_tail];
 }
@@ -771,9 +768,11 @@ void handle_sysret_signal(void)
 {
     shim_tcb_t * tcb = SHIM_GET_TLS();
     struct shim_thread * thread = (struct shim_thread *) tcb->tp;
-    debug("sysret signal: regs %p stack: %p "
-          "thread: %p tcb: %p &flags: %p flags: 0x%x (counter = %d) stack: %p\n",
-          tcb->context.regs, tcb->context.sp,
+    debug("sysret signal: regs %p stack: %p rip: %p syscall_nr: %ld\n",
+          tcb->context.regs, tcb->context.sp, tcb->context.ret_ip,
+          tcb->context.syscall_nr);
+
+    debug("thread: %p tcb: %p &flags: %p flags: 0x%x (counter = %d) stack: %p\n",
           thread, tcb, &tcb->flags, tcb->flags, thread->has_signal.counter,
           &tcb);
 

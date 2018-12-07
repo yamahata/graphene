@@ -62,14 +62,6 @@
         lock btrq $SHIM_FLAG_SIGPENDING, %fs:(SHIM_TCB_OFFSET + TCB_FLAGS)
 .endm
 
-/* TODO: fix to use CHECK_SIGNAL_PENDING_BIT */
-.macro CHECK_SIGNAL_PENDING
-        movq %fs:(SHIM_TCB_OFFSET + TCB_TP), %rbx
-        addq $THREAD_HAS_SIGNAL, %rbx
-        movq (%rbx), %rcx
-        cmp $0, %rcx
-.endm
-
 syscalldb:
         .cfi_startproc
 
@@ -119,11 +111,9 @@ isdef:
         call *%rbx
 
 .Lret_nosignal:
-        CHECK_SIGNAL_PENDING
-        //CHECK_SIGNAL_PENDING_BIT
+        CHECK_SIGNAL_PENDING_BIT
 __syscallas_signal_allowed_1_begin:
-        ja .Lsignal_pending
-        //jc .Lsignal_pending
+        jc .Lsignal_pending
 
 .Lret_signal:
 	CLEAR_SAVED_AREA_IN_SHIM_TLS
