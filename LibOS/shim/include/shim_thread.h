@@ -84,7 +84,7 @@ struct shim_thread {
     struct shim_handle * exec;
 
     void * stack, * stack_top, * stack_red;
-    void * tcb;
+    __libc_tcb_t * tcb;
     bool user_tcb; /* is tcb assigned by user? */
     void * frameptr;
 
