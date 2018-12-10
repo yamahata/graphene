@@ -249,7 +249,7 @@ int initialize_enclave (struct pal_enclave * enclave)
     enclave_image = INLINE_SYSCALL(open, 3, ENCLAVE_FILENAME, O_RDONLY, 0);
     if (IS_ERR(enclave_image)) {
         SGX_DBG(DBG_E, "cannot find %s\n", ENCLAVE_FILENAME);
-        return -ERRNO(ret);
+        return -ERRNO(enclave_image);
     }
 
     char cfgbuf[CONFIG_MAX];
