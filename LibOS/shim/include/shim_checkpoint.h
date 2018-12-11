@@ -221,7 +221,8 @@ enum {
         oob->cp_un.cp_val = (ptr_t) _size;                          \
         ptr_t _off = (ptr_t) __ADD_CP_OFFSET(_size);                \
         if (DEBUG_CHECKPOINT)                                       \
-            debug("ADD OFFSET(%d) >%ld\n", (size), store->offset);  \
+            debug("ADD OFFSET(%ld) >%ld\n",                         \
+                  (unsigned long)(size), store->offset);            \
     _off; })
 
 #define ADD_CP_FUNC_ENTRY(value)                                    \
