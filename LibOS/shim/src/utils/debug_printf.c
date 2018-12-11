@@ -22,13 +22,13 @@
 static void __dump_regs(const struct shim_regs * regs)
 {
     debug_printf("registers\n");
-    debug_printf("r15 %08x r14 %08x r13 %08x r12 %08x\n",
+    debug_printf("r15 %08lx r14 %08lx r13 %08lx r12 %08lx\n",
                  regs->r15, regs->r14, regs->r13, regs->r12);
-    debug_printf("r11 %08x r10 %08x r09 %08x r08 %08x\n",
+    debug_printf("r11 %08lx r10 %08lx r09 %08lx r08 %08lx\n",
                  regs->r11, regs->r10, regs->r9, regs->r8);
-    debug_printf("rcx %08x rdx %08x rsi %08x rdi %08x\n",
+    debug_printf("rcx %08lx rdx %08lx rsi %08lx rdi %08lx\n",
                  regs->rcx, regs->rdx, regs->rsi, regs->rdi);
-    debug_printf("rbx %08x rbp %08x\n",
+    debug_printf("rbx %08lx rbp %08lx\n",
                  regs->rbx, regs->rbp);
 }
 
@@ -45,7 +45,7 @@ void __debug_context(const char * file, const int line, const char * func,
     const struct shim_regs * regs = context->regs;
     debug_printf("%s:%d:%s ", file, line, func);
     debug_printf("context %p resg %p\n", context, regs);
-    debug_printf("syscall_nr %08x sp %p ret_ip %p\n",
+    debug_printf("syscall_nr %08lx sp %p ret_ip %p\n",
                  context->syscall_nr, context->sp, context->ret_ip);
     if (regs) {
         __dump_regs(regs);
@@ -57,7 +57,7 @@ void __debug_hex(const char * file, const int line, const char * func,
 {
     debug_printf("%s:%d:%s\n", file, line, func);
     while (count >= 4) {
-        debug_printf("%p: %08x %08x %08x %08x\n",
+        debug_printf("%p: %08lx %08lx %08lx %08lx\n",
                      addr,
                      addr[0], addr[1], addr[2], addr[3]);
         addr += 4;
@@ -66,7 +66,7 @@ void __debug_hex(const char * file, const int line, const char * func,
     if (count > 0) {
         debug_printf("%p: ", addr);
         for (int i = 0; i < count; i++) {
-            debug_printf("%08x", addr[i]);
+            debug_printf("%08lx", addr[i]);
         }
         debug_printf("\n");
     }
