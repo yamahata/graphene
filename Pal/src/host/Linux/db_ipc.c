@@ -242,7 +242,7 @@ static int _DkPhysicalMemoryMapCma (
         return unix_to_pal_error(ERRNO(ret));
     }
     if (ret != size) {
-        printf("process_vm_readv failure: ret: %d size: %d\n", ret, size);
+        printf("process_vm_readv failure: ret: %d size: %ld\n", ret, size);
         return PAL_ERROR_INVAL;
     }
 
