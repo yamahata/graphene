@@ -54,7 +54,7 @@ allocate_signal_log (struct shim_thread * thread, int sig)
         tail = (tail == MAX_SIGNAL_LOG - 1) ? 0 : tail + 1;
     } while (atomic_cmpxchg(&log->tail, old_tail, tail) == tail);
 
-    debug("signal_logs[%d]: head=%d, tail=%d (counter = %d)\n", sig - 1,
+    debug("signal_logs[%d]: head=%d, tail=%d (counter = %ld)\n", sig - 1,
           head, tail, thread->has_signal.counter + 1);
 
     atomic_inc(&thread->has_signal);
@@ -62,8 +62,8 @@ allocate_signal_log (struct shim_thread * thread, int sig)
     if (thread->tcb)
         set_bit(SHIM_FLAG_SIGPENDING, &thread->tcb->shim_tcb.flags);
 
-    debug("signal set_bit thread: %p tcb: %p &tcb->flags: %p tcb->flags 0x%x "
-          "tcb->tid %d counter = %d\n",
+    debug("signal set_bit thread: %p tcb: %p &tcb->flags: %p tcb->flags 0x%lx "
+          "tcb->tid %d counter = %ld\n",
           thread, thread->tcb, &(((shim_tcb_t*)thread->tcb)->flags),
           ((shim_tcb_t*)thread->tcb)->flags, ((shim_tcb_t*)thread->tcb)->tid,
           thread->has_signal.counter);
@@ -258,11 +258,11 @@ static inline void internal_fault(const char* errstr,
 {
     IDTYPE tid = get_cur_tid();
     if (is_internal(context))
-        sys_printf("%s at %p (IP = +0x%lx, VMID = %u, TID = %u)\n", errstr,
+        sys_printf("%s at %08lx (IP = +0x%lx, VMID = %u, TID = %u)\n", errstr,
                    addr, (void *) context->IP - (void *) &__load_address,
                    cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
     else
-        sys_printf("%s at %p (IP = %p, VMID = %u, TID = %u)\n", errstr,
+        sys_printf("%s at %08lx (IP = %lx, VMID = %u, TID = %u)\n", errstr,
                    addr, context ? context->IP : 0,
                    cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
 
@@ -277,7 +277,7 @@ static void arithmetic_error_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * c
         internal_fault("Internal arithmetic fault", arg, context);
     } else {
         if (context)
-            debug("arithmetic fault at %p\n", context->IP);
+            debug("arithmetic fault at %lx\n", context->IP);
 
         deliver_signal(event, ALLOC_SIGINFO(SIGFPE, FPE_INTDIV,
                                             si_addr, (void *) arg), context);
@@ -306,7 +306,7 @@ static void memfault_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
     }
 
     if (context)
-        debug("memory fault at %p (IP = %p)\n", arg, context->IP);
+        debug("memory fault at %08lx (IP = %08lx)\n", arg, context->IP);
 
     struct shim_vma_val vma;
     int signo = SIGSEGV;
@@ -456,7 +456,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
         !(lookup_vma((void *) arg, &vma)) &&
         !(vma.flags & VMA_INTERNAL)) {
         if (context)
-            debug("illegal instruction at %p\n", context->IP);
+            debug("illegal instruction at %08lx\n", context->IP);
 
         uint8_t * rip = (uint8_t*)context->IP;
         /* syscall 0x0f 0x05 */
@@ -528,7 +528,7 @@ static void resume_upcall (PAL_PTR eventp, PAL_NUM arg, PAL_CONTEXT * context)
             tcb->context.preempt |= SIGNAL_DELAYED;
         } else {
             PAL_EVENT * event = (PAL_EVENT *) eventp;
-            debug("resume_upcall rsp: %p rip %p tid: %d\n",
+            debug("resume_upcall rsp: %08lx rip %08lx tid: %d\n",
                   context->rsp, context->rip, get_cur_tid());
 
             __handle_signal(tcb, 0, event->uc, event);
@@ -730,7 +730,7 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
               "%p (%d, %p, %p)\n", handler, sig, &signal->info,
               &signal->context);
         debug("waking up for signal "
-              "thread: %p tcb: %p, tcb->flags: %p 0x%x tid: %d\n",
+              "thread: %p tcb: %p, tcb->flags: %p 0x%lx tid: %d\n",
               thread, tcb, &tcb->flags, tcb->flags, tcb->tid);
         set_bit(SHIM_FLAG_SIGPENDING, &(((shim_tcb_t*)thread->tcb)->flags));
     }
@@ -792,7 +792,7 @@ void handle_sysret_signal(void)
           tcb->context.regs, tcb->context.sp, tcb->context.ret_ip,
           tcb->context.syscall_nr, tcb->context.regs? tcb->context.regs->rcx: 0, &syscall_wrapper);
 
-    debug("thread: %p tcb: %p &flags: %p flags: 0x%x (counter = %d) stack: %p\n",
+    debug("thread: %p tcb: %p &flags: %p flags: 0x%lx (counter = %ld) stack: %p\n",
           thread, tcb, &tcb->flags, tcb->flags, thread->has_signal.counter,
           &tcb);
 
@@ -814,12 +814,12 @@ void handle_signal (bool delayed_only)
     if (!thread || !atomic_read(&thread->has_signal))
         return;
 
-    debug("handle signal (counter = %d)\n", atomic_read(&thread->has_signal));
+    debug("handle signal (counter = %ld)\n", atomic_read(&thread->has_signal));
 
     __disable_preempt(tcb);
 
     if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1) {
-        debug("signal delayed (%d)\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+        debug("signal delayed (%ld)\n", tcb->context.preempt & ~SIGNAL_DELAYED);
         tcb->context.preempt |= SIGNAL_DELAYED;
         set_bit(SHIM_FLAG_SIGPENDING, &tcb->flags);
     } else {

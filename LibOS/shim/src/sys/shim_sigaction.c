@@ -95,7 +95,7 @@ int shim_do_sigreturn (int __unused)
     ucontext_t * user_uc = (ucontext_t*)tcb->context.sp;
 
     debug("sigreturn thread %d regs: %p sp: %p "
-          "user_uc: %p gregs.rsp: %p gregs.rip: %p\n",
+          "user_uc: %p gregs.rsp: %08lx gregs.rip: %08lx\n",
           get_cur_thread()->tid, tcb->context.regs, tcb->context.sp,
           user_uc,
           user_uc->uc_mcontext.gregs[REG_RSP],
