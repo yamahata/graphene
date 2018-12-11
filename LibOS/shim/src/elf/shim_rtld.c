@@ -796,7 +796,7 @@ static int __remove_elf_object (struct link_map * l)
 
 static int __free_elf_object (struct link_map * l)
 {
-    debug("removing %s as runtime object loaded at %p\n", l->l_name,
+    debug("removing %s as runtime object loaded at %08lx\n", l->l_name,
           l->l_map_start);
 
     struct loadcmd *c = l->loadcmds;
@@ -1104,7 +1104,7 @@ int reload_elf_object (struct shim_handle * file)
     if (!map)
         return -ENOENT;
 
-    debug("reloading %s as runtime object loaded at %p-%p\n",
+    debug("reloading %s as runtime object loaded at %08lx-%08lx\n",
           qstrgetstr(&file->uri), map->l_map_start, map->l_map_end);
 
     return __load_elf_object(file, NULL, OBJECT_REMAP, map);
@@ -1603,7 +1603,7 @@ int init_brk_from_executable (struct shim_handle * exec)
 
 int register_library (const char * name, unsigned long load_address)
 {
-    debug("glibc register library %s loaded at %p\n",
+    debug("glibc register library %s loaded at %08lx\n",
           name, load_address);
 
     struct shim_handle * hdl = get_new_handle();
@@ -1769,7 +1769,7 @@ BEGIN_RS_FUNC(library)
 
     SAVE_PROFILE_INTERVAL(add_or_replace_library);
 
-    DEBUG_RS("base=%p,name=%s", map->l_addr, map->l_name);
+    DEBUG_RS("base=%08lx,name=%s", map->l_addr, map->l_name);
 }
 END_RS_FUNC(library)
 
@@ -1788,7 +1788,7 @@ BEGIN_CP_FUNC(loaded_libraries)
         map = map->l_next;
     }
 
-    ADD_CP_FUNC_ENTRY(new_interp_map);
+    ADD_CP_FUNC_ENTRY((ptr_t)new_interp_map);
 }
 END_CP_FUNC(loaded_libraries)
 
