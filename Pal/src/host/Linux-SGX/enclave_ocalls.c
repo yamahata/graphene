@@ -24,8 +24,6 @@
     (val) = (type) _tmp;                \
 } while (0)
 
-int printf(const char * fmt, ...);
-
 #define SGX_OCALL(code, ms) sgx_ocall(code, ms)
 
 #define OCALL_EXIT()                                    \
