@@ -54,7 +54,7 @@
  *     }
  */
 
-void restore_rt (void) asm ("__restore_rt");
+void restore_rt (void) asm ("__restore_rt") __attribute__((visibility("hidden")));
 
 #ifndef SA_RESTORER
 #define SA_RESTORER  0x04000000
