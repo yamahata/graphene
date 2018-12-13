@@ -1,5 +1,5 @@
 #include "sgx_arch.h"
-#include "sgx_tls.h"
+#include "asm-offsets.h"
 
 	.extern ecall_table
 	.extern enclave_ecall_pal_main
@@ -137,51 +137,52 @@ enclave_entry:
 
 .Lhandle_exception:
 	mov SGX_GPR_RSP(%rbx), %rsi
-	sub $0x90, %rsi
+	sub $SGX_CONTEXT_SIZE, %rsi
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
 	xchg %rdi, SGX_GPR_RDI(%rbx)
-	mov %rdi, 0x38(%rsi)
+	mov %rdi, SGX_CONTEXT_RDI(%rsi)
 
 	# dump the rest of context
-	mov SGX_GPR_RAX(%rbx), %rdi
-	mov %rdi, 0x00(%rsi)
-	mov SGX_GPR_RCX(%rbx), %rdi
-	mov %rdi, 0x08(%rsi)
-	mov SGX_GPR_RDX(%rbx), %rdi
-	mov %rdi, 0x10(%rsi)
-	mov SGX_GPR_RBX(%rbx), %rdi
-	mov %rdi, 0x18(%rsi)
-	mov SGX_GPR_RSP(%rbx), %rdi
-	mov %rdi, 0x20(%rsi)
-	mov SGX_GPR_RBP(%rbx), %rdi
-	mov %rdi, 0x28(%rsi)
-	mov SGX_GPR_RSI(%rbx), %rdi
-	mov %rdi, 0x30(%rsi)
-	mov SGX_GPR_R8(%rbx), %rdi
-	mov %rdi, 0x40(%rsi)
-	mov SGX_GPR_R9(%rbx), %rdi
-	mov %rdi, 0x48(%rsi)
-	mov SGX_GPR_R10(%rbx), %rdi
-	mov %rdi, 0x50(%rsi)
-	mov SGX_GPR_R11(%rbx), %rdi
-	mov %rdi, 0x58(%rsi)
-	mov SGX_GPR_R12(%rbx), %rdi
-	mov %rdi, 0x60(%rsi)
-	mov SGX_GPR_R13(%rbx), %rdi
-	mov %rdi, 0x68(%rsi)
-	mov SGX_GPR_R14(%rbx), %rdi
-	mov %rdi, 0x70(%rsi)
-	mov SGX_GPR_R15(%rbx), %rdi
-	mov %rdi, 0x78(%rsi)
-	mov SGX_GPR_RFLAGS(%rbx), %rdi
-	mov %rdi, 0x80(%rsi)
-	mov SGX_GPR_RIP(%rbx), %rdi
-	mov %rdi, 0x88(%rsi)
+	movq SGX_GPR_RAX(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RAX(%rsi)
+	movq SGX_GPR_RCX(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RCX(%rsi)
+	movq SGX_GPR_RDX(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RDX(%rsi)
+	movq SGX_GPR_RBX(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RBX(%rsi)
+	movq SGX_GPR_RSP(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RSP(%rsi)
+	movq SGX_GPR_RBP(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RBP(%rsi)
+	movq SGX_GPR_RSI(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RSI(%rsi)
+	/* rdi is saved above */
+	movq SGX_GPR_R8(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R8(%rsi)
+	movq SGX_GPR_R9(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R9(%rsi)
+	movq SGX_GPR_R10(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R10(%rsi)
+	movq SGX_GPR_R11(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R11(%rsi)
+	movq SGX_GPR_R12(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R12(%rsi)
+	movq SGX_GPR_R13(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R13(%rsi)
+	movq SGX_GPR_R14(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R14(%rsi)
+	movq SGX_GPR_R15(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_R15(%rsi)
+	movq SGX_GPR_RFLAGS(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RFLAGS(%rsi)
+	movq SGX_GPR_RIP(%rbx), %rdi
+	movq %rdi, SGX_CONTEXT_RIP(%rsi)
 
-	mov %rsi, SGX_GPR_RSP(%rbx)
-	mov %rsi, SGX_GPR_RSI(%rbx)
+	movq %rsi, SGX_GPR_RSP(%rbx)
+	movq %rsi, SGX_GPR_RSI(%rbx)
 
 	# new RIP is the exception handler
 	lea _DkExceptionHandler(%rip), %rdi
