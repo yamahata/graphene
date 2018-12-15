@@ -141,7 +141,7 @@ enclave_entry:
 
 .Lhandle_exception:
 	movq SGX_GPR_RSP(%rbx), %rsi
-	subq $SGX_CONTEXT_SIZE, %rsi
+	subq $(SGX_CONTEXT_SIZE + REDZONE_SIZE), %rsi
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
