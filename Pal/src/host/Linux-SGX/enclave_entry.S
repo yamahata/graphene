@@ -166,6 +166,9 @@ enclave_entry:
 
 .Lout_of_signal_stack:
 	movq %gs:SGX_SIG_STACK_HIGH, %rsi
+        /* staring from new stack. there is no red zone used.
+         * offset it below calculation */
+	addq $REDZONE_SIZE, %rsi
 
 #define STACK_FRAME_SUB (SGX_CONTEXT_SIZE + REDZONE_SIZE + 8)
 .Lon_signal_stack:
