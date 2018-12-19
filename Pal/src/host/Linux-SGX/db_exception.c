@@ -168,37 +168,11 @@ static void restore_sgx_context (sgx_context_t * uc)
 
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
-    /* prepare the return address */
     if (uc->rsp - REDZONE_SIZE - 8 != (unsigned long)&uc->rip) {
         assert(uc->rsp + REDZONE_SIZE < (uintptr_t)(uc + 1));
-        *(unsigned long *)(uc->rsp - REDZONE_SIZE - 8) = uc->rip;
     }
 
-    /* now pop the stack */
-    __asm__ volatile (
-                  "mov %0, %%rsp\n"
-                  "pop %%rax\n"
-                  "pop %%rcx\n"
-                  "pop %%rdx\n"
-                  "pop %%rbx\n"
-                  "add $8, %%rsp\n" /* don't pop RSP yet */
-                  "pop %%rbp\n"
-                  "pop %%rsi\n"
-                  "pop %%rdi\n"
-                  "pop %%r8\n"
-                  "pop %%r9\n"
-                  "pop %%r10\n"
-                  "pop %%r11\n"
-                  "pop %%r12\n"
-                  "pop %%r13\n"
-                  "pop %%r14\n"
-                  "pop %%r15\n"
-                  "popfq\n"
-                  "mov -13 * 8(%%rsp), %%rsp\n"
-                  /* TODO: if interrupted in here, emulate the next jmp
-                   * instruction  */
-                  "jmp * -" XSTRINGIFY(REDZONE_SIZE) " - 8(%%rsp)\n"
-                  :: "r"(uc) : "memory");
+    __restore_sgx_context(uc);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
