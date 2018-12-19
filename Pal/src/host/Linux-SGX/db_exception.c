@@ -164,14 +164,9 @@ void _DkExceptionRealHandler (int event, PAL_NUM arg, struct pal_frame * frame,
 
 static void restore_sgx_context (sgx_context_t * uc)
 {
-    restore_xregs((uint64_t)(uc + 1));
-
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
-    if (uc->rsp - REDZONE_SIZE - 8 != (unsigned long)&uc->rip) {
-        assert(uc->rsp + REDZONE_SIZE < (uintptr_t)(uc + 1));
-    }
-
+    restore_xregs((uint64_t)(uc + 1));
     __restore_sgx_context(uc);
 }
 
