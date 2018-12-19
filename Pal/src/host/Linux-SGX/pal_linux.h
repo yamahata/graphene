@@ -103,6 +103,9 @@ extern char __text_start, __text_end, __data_start, __data_end;
 typedef struct { char bytes[32]; } sgx_checksum_t;
 typedef struct { char bytes[16]; } sgx_stub_t;
 
+extern uint64_t xsave_features;
+extern uint32_t xsave_size;
+extern const uint32_t SYNTHETIC_STATE[];
 void init_xsave_size(uint64_t xfrm);
 void save_xregs(PAL_XREGS_STATE * xsave_area);
 void restore_xregs(const PAL_XREGS_STATE * xsave_area);

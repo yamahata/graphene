@@ -164,14 +164,13 @@ void _DkExceptionRealHandler (int event, PAL_NUM arg, struct pal_frame * frame,
 
 static void restore_sgx_context (sgx_context_t * uc)
 {
-    /* prepare the return address */
-    // uc->rsp -= 8;
-    // *(uint64_t *) uc->rsp = uc->rip;
+    restore_xregs((uint64_t)(uc + 1));
 
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
+    /* prepare the return address */
     if (uc->rsp - REDZONE_SIZE - 8 != (unsigned long)&uc->rip) {
-        assert((uintptr_t)(uc + 1) + REDZONE_SIZE <= uc->rsp);
+        assert(uc->rsp + REDZONE_SIZE < (uintptr_t)(uc + 1));
         *(unsigned long *)(uc->rsp - REDZONE_SIZE - 8) = uc->rip;
     }
 
@@ -196,12 +195,16 @@ static void restore_sgx_context (sgx_context_t * uc)
                   "pop %%r15\n"
                   "popfq\n"
                   "mov -13 * 8(%%rsp), %%rsp\n"
+                  /* TODO: if interrupted in here, emulate the next jmp
+                   * instruction  */
                   "jmp * -" XSTRINGIFY(REDZONE_SIZE) " - 8(%%rsp)\n"
                   :: "r"(uc) : "memory");
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
+    save_xregs((uint64_t)(uc + 1));
+
 #if SGX_HAS_FSGSBASE == 0
     /* set the FS first if necessary */
     uint64_t fsbase = (uint64_t) GET_ENCLAVE_TLS(fsbase);
