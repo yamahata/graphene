@@ -423,9 +423,7 @@ int initialize_enclave (struct pal_enclave * enclave)
                 gs->tcs_offset = tcs_area->addr + pagesize * t;
                 gs->initial_stack_offset =
                     stack_areas[t].addr + ENCLAVE_STACK_SIZE;
-                gs->sig_stack_low = sig_stack_areas[t].addr;
-                gs->sig_stack_high =
-                    sig_stack_areas[t].addr + ENCLAVE_SIG_STACK_SIZE;
+                gs->sig_stack_offset = sig_stack_areas[t].addr;
                 gs->ssa = (void *) ssa_area->addr +
                     enclave->ssaframesize * SSAFRAMENUM * t +
                     enclave_secs.baseaddr;

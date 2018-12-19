@@ -77,6 +77,11 @@ void pal_start_thread (void)
     free(thread_param);
     new_thread->param = NULL;
     SET_ENCLAVE_TLS(thread, new_thread);
+    SET_ENCLAVE_TLS(sig_stack_low,
+                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base);
+    SET_ENCLAVE_TLS(sig_stack_high,
+                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base +
+                    ENCLAVE_SIG_STACK_SIZE);
     callback((void *) param);
 }
 

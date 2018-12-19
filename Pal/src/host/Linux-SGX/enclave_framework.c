@@ -68,7 +68,7 @@ void init_xsave_size(uint64_t xfrm)
     };
 
     xsave_enabled = 0;
-    xsave_size = 0;
+    xsave_size = 512 + 64;
     if (!xfrm || (xfrm & SGX_XFRM_RESERVED)) {
         SGX_DBG(DBG_I, "xsave is disabled\n");
         return;

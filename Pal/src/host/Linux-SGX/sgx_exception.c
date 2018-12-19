@@ -214,6 +214,8 @@ static void _DkTerminateSighandler (int signum, siginfo_t * info,
         uc->uc_mcontext.gregs[REG_RDI] = -PAL_ERROR_INTERRUPTED;
         uc->uc_mcontext.gregs[REG_RSI] = get_event_num(signum);
     } else {
+    SGX_DBG(DBG_E, "sgx_raise signum %d event %d\n",
+            signum, get_event_num(signum));
 #if SGX_HAS_FSGSBASE != 0
         sgx_raise(get_event_num(signum));
 #else
@@ -263,6 +265,7 @@ static void _DkResumeSighandler (int signum, siginfo_t * info,
             event = PAL_EVENT_ILLEGAL;
             break;
     }
+    SGX_DBG(DBG_E, "sgx_raise signum %d event %d\n", signum, event);
 #if SGX_HAS_FSGSBASE != 0
     sgx_raise(event);
 #else

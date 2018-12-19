@@ -140,8 +140,29 @@ enclave_entry:
 #endif
 
 .Lhandle_exception:
+	# %rbx SGX_GPR base address from TLS
 	movq SGX_GPR_RSP(%rbx), %rsi
-	subq $(SGX_CONTEXT_SIZE + REDZONE_SIZE), %rsi
+	movq %gs:SGX_SIG_STACK_LOW, %rax
+	cmpq %rax, %rsi
+	jle .Lout_of_signal_stack
+	movq %gs:SGX_SIG_STACK_HIGH, %rax
+	cmpq %rax, %rsi
+	jge .Lout_of_signal_stack
+	jmp .Lon_signal_stack
+
+.Lout_of_signal_stack:
+	movq %gs:SGX_SIG_STACK_HIGH, %rsi
+
+#define STACK_FRAME_SUB (SGX_CONTEXT_SIZE + REDZONE_SIZE + 8)
+.Lon_signal_stack:
+	movq xsave_size@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	addl $STACK_FRAME_SUB, %eax
+	subq %rax, %rsi
+	# Align xsave area to 64 bytes after sgx_context_t
+	# sizeof(sgx_context_t) = 144 = 16 (mod 64)
+	andq $~(64 - 1), %rsi
+	subq $16, %rsi
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
@@ -191,6 +212,8 @@ enclave_entry:
 	# new RIP is the exception handler
 	leaq _DkExceptionHandler(%rip), %rdi
 	movq %rdi, SGX_GPR_RIP(%rbx)
+
+	# FP registers are saved on entry of _DkExceptionHandler()
 
 	# clear the registers
 	xorq %rdi, %rdi
@@ -310,4 +333,41 @@ sgx_ocall:
 	popfq
 	addq $8, %rsp	# skip RIP
 	popq %rbp
+	retq
+
+
+	# void save_xregs(uint64_t xsave_area)
+	.global save_xregs
+	.type save_xregs, @function
+save_xregs:
+	fwait
+	movq xsave_enabled@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	cmpl $0, %eax
+	jz 1f
+
+	movl $0xffffffff, %eax
+	movl $0xffffffff, %edx
+	xsave64 (%rdi)
+	retq
+1:
+	fxsave64 (%rdi)
+	retq
+
+
+	# void restore_xregs(uint64_t xsave_area)
+	.global restore_xregs
+	.type restore_xregs, @function
+restore_xregs:
+	movq xsave_enabled@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	cmpl $0, %eax
+	jz 1f
+
+	movl $0xffffffff, %eax
+	movl $0xffffffff, %edx
+	xrstor64 (%rdi)
+	retq
+1:
+	fxrstor64 (%rdi)
 	retq
