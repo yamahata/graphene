@@ -152,7 +152,6 @@ void pal_linux_main(const char ** arguments, const char ** environments,
     setup_pal_map(&pal_map);
 
     /* initialize enclave properties */
-    init_xsave_size(pal_sec.enclave_attributes.xfrm);
     init_enclave();
     pal_state.start_time = start_time;
 
