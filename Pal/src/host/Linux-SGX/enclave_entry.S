@@ -291,6 +291,11 @@ sgx_ocall:
 .Lexception_handler:
 
 .Leexit:
+	movq %rdi, %rbx
+	movq SYNTHETIC_STATE@GOTPCREL(%rip), %rdi
+	callq restore_xregs
+	movq %rbx, %rdi
+
 	xorq %rdx, %rdx
 	xorq %r8, %r8
 	xorq %r9, %r9
