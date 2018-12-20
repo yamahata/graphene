@@ -272,9 +272,16 @@ sgx_ocall:
 	# no RAX
 
 	movq %rsp, %rbp
-	subq $XSAVE_SIZE,  %rsp
+	movq xsave_size@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	subq %rax,  %rsp
 	andq $XSAVE_ALIGN, %rsp
-	fxsave (%rsp)
+
+	pushq %rdi
+	movq %rsp, %rdi
+	addq $8, %rdi	/* adjust pushq %rdi above */
+	callq save_xregs
+	popq %rdi
 
 	pushq %rbp
 	movq %rsp, %gs:SGX_STACK
@@ -320,10 +327,6 @@ sgx_ocall:
 	# restore the stack
 	movq %gs:SGX_STACK, %rsp
 
-	popq %rbp
-	fxrstor (%rsp)
-	movq %rbp, %rsp
-
 	cmpq $0, %rsi
 	je .Lno_external_event
 	pushq %rax
@@ -332,6 +335,13 @@ sgx_ocall:
 	callq _DkHandleExternalEvent
 	popq %rax
 .Lno_external_event:
+
+	popq %rbp
+	movq %rsp, %rdi
+	pushq %rax
+	callq restore_xregs
+	popq %rax
+	movq %rbp, %rsp
 
 	popq %rcx
 	popq %rdx
@@ -405,6 +415,16 @@ save_xregs:
 	movl (%rax), %eax
 	cmpl $0, %eax
 	jz 1f
+
+	## clear xsave header
+	movq $0, XSAVE_HEADER_OFFSET + 0 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 1 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 2 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 3 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 4 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 5 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 6 * 8(%rdi)
+	movq $0, XSAVE_HEADER_OFFSET + 7 * 8(%rdi)
 
 	movl $0xffffffff, %eax
 	movl $0xffffffff, %edx
