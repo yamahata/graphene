@@ -725,6 +725,7 @@ int ocall_sleep (unsigned long * microsec)
     ms->ms_microsec = microsec ? *microsec : 0;
 
     retval = SGX_OCALL(OCALL_SLEEP, ms);
+    SGX_DBG(DBG_E, "sleep %ld ret %d\n", microsec? *microsec: 0, retval);
     if (microsec) {
         if (!retval)
             *microsec = 0;
