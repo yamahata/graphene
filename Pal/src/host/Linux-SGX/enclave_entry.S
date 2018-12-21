@@ -226,6 +226,8 @@ enclave_entry:
 	movq %rsi, SGX_GPR_RSP(%rbx)
 	movq %rsi, SGX_GPR_RSI(%rbx)
 
+	/* TODO: save EXINFO in MISC region */
+
 	# new RIP is the exception handler
 	leaq _DkExceptionHandler(%rip), %rdi
 	movq %rdi, SGX_GPR_RIP(%rbx)
@@ -329,17 +331,26 @@ sgx_ocall:
 	WRFSBASE_RBX
 .Lno_fsbase:
 
-	# restore the stack
-	movq %gs:SGX_STACK, %rsp
-
 	cmpq $0, %rsi
 	je .Lno_external_event
+
 	pushq %rax
 	movq %rsi, %rdi
 	movq %rsp, %rsi
+
+	movq %gs:SGX_SIG_STACK_HIGH, %rbx
+	subq $8, %rbx
+	movq %rsi, (%rbx)
+	movq %rbx, %rsp
+
 	callq _DkHandleExternalEvent
+
+	popq %rsp
 	popq %rax
+
 .Lno_external_event:
+	# restore the stack
+	movq %gs:SGX_STACK, %rsp
 
 	popq %rbp
 	movq %rsp, %rdi
