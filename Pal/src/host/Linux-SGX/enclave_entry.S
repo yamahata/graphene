@@ -170,7 +170,8 @@ enclave_entry:
          * offset it below calculation */
 	addq $REDZONE_SIZE, %rsi
 
-#define STACK_FRAME_SUB (SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_STATE_MAGIC2_SIZE)
+#define STACK_FRAME_SUB \
+	(SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_XSTATE_MAGIC2_SIZE)
 .Lon_signal_stack:
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
@@ -179,7 +180,7 @@ enclave_entry:
 	# Align xsave area to 64 bytes after sgx_context_t
 	# SGX_CONTEXT_SIZE = sizeof(sgx_context_t) = 144
 	# PAL_XSTATE_ALIGN = 64
-	# SGX_CONTEXT_XSTATE_ALIGN_SUB = SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN = 16
+	# SGX_CONTEXT_XSTATE_ALIGN_SUB=SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN = 16
 	# unfortunatley gas doesn't understand
 	# $(SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN)
 	andq $~(PAL_XSTATE_ALIGN - 1), %rsi
