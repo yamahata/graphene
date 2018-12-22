@@ -170,16 +170,20 @@ enclave_entry:
          * offset it below calculation */
 	addq $REDZONE_SIZE, %rsi
 
-#define STACK_FRAME_SUB (SGX_CONTEXT_SIZE + REDZONE_SIZE + 8)
+#define STACK_FRAME_SUB (SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_STATE_MAGIC2_SIZE)
 .Lon_signal_stack:
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
 	addl $STACK_FRAME_SUB, %eax
 	subq %rax, %rsi
 	# Align xsave area to 64 bytes after sgx_context_t
-	# sizeof(sgx_context_t) = 144 = 16 (mod 64)
-	andq $~(64 - 1), %rsi
-	subq $16, %rsi
+	# SGX_CONTEXT_SIZE = sizeof(sgx_context_t) = 144
+	# PAL_XSTATE_ALIGN = 64
+	# SGX_CONTEXT_XSTATE_ALIGN_SUB = SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN = 16
+	# unfortunatley gas doesn't understand
+	# $(SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN)
+	andq $~(PAL_XSTATE_ALIGN - 1), %rsi
+	subq $SGX_CONTEXT_XSTATE_ALIGN_SUB, %rsi
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context

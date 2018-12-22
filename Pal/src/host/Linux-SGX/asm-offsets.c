@@ -1,5 +1,6 @@
 #include <stddef.h>
 
+#include "pal.h"
 #include "sgx_arch.h"
 #include "sgx_tls.h"
 
@@ -48,6 +49,8 @@ void dummy(void)
     OFFSET_T(SGX_CONTEXT_RFLAGS, sgx_context_t, rflags);
     OFFSET_T(SGX_CONTEXT_RIP, sgx_context_t, rip);
     DEFINE(SGX_CONTEXT_SIZE, sizeof(sgx_context_t));
+    DEFINE(SGX_CONTEXT_XSTATE_ALIGN_SUB,
+           sizeof(sgx_context_t) % PAL_XSTATE_ALIGN);
 
     /* struct enclave_tls */
     OFFSET(SGX_ENCLAVE_SIZE, enclave_tls, enclave_size);
@@ -67,5 +70,8 @@ void dummy(void)
 
     /* sgx_arch_tcs_t */
     DEFINE(TCS_SIZE, sizeof(sgx_arch_tcs_t));
-}
 
+    /* fp regs */
+    OFFSET_T(XSAVE_HEADER_OFFSET, PAL_XREGS_STATE, header);
+    DEFINE(PAL_FP_XSTATE_MAGIC2_SIZE, PAL_FP_XSTATE_MAGIC2_SIZE);
+}

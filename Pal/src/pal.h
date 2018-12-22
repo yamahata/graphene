@@ -210,6 +210,8 @@ typedef struct {
     uint64_t reserved[6];
 } __attribute__((packed)) PAL_XSTATE_HEADER;
 
+#define PAL_XSTATE_ALIGN    64
+
 typedef struct {
     PAL_FPSTATE fpstate;
     PAL_XSTATE_HEADER header;
