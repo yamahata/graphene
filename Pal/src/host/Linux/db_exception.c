@@ -364,5 +364,8 @@ void _DkExceptionReturn (void * event)
     if (e->uc) {
         /* copy the context back to ucontext */
         memcpy(e->uc->uc_mcontext.gregs, &e->context, sizeof(PAL_CONTEXT));
+        if (e->context.fpregs == NULL) {
+            e->uc->uc_mcontext.fpregs = NULL;
+        }
     }
 }
