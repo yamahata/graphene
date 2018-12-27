@@ -86,18 +86,6 @@ typedef union pal_handle
 
 #endif /* !IN_PAL */
 
-typedef struct {
-#ifdef __x86_64__
-    PAL_NUM r8, r9, r10, r11, r12, r13, r14, r15;
-    PAL_NUM rdi, rsi, rbp, rbx, rdx, rax, rcx;
-    PAL_NUM rsp, rip;
-    PAL_NUM efl, csgsfs, err, trapno, oldmask, cr2;
-    PAL_PTR fpregs;
-#else
-# error "Unsupported architecture"
-#endif
-} PAL_CONTEXT;
-
 #ifdef __x86_64__
 union pal_csgsfs {
     struct {
@@ -220,6 +208,18 @@ typedef struct {
 #else
 # error "Unsupported architecture"
 #endif
+
+typedef struct {
+#ifdef __x86_64__
+    PAL_NUM r8, r9, r10, r11, r12, r13, r14, r15;
+    PAL_NUM rdi, rsi, rbp, rbx, rdx, rax, rcx;
+    PAL_NUM rsp, rip;
+    PAL_NUM efl, csgsfs, err, trapno, oldmask, cr2;
+    PAL_XREGS_STATE * fpregs;
+#else
+# error "Unsupported architecture"
+#endif
+} PAL_CONTEXT;
 
 #define PAL_TRUE  true
 #define PAL_FALSE false
