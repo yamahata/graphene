@@ -259,16 +259,7 @@ static void _DkResumeSighandler (int signum, siginfo_t * info,
         INLINE_SYSCALL(exit, 1, 1);
     }
 
-    int event = 0;
-    switch(signum) {
-        case SIGBUS:
-        case SIGSEGV:
-            event = PAL_EVENT_MEMFAULT;
-            break;
-        case SIGILL:
-            event = PAL_EVENT_ILLEGAL;
-            break;
-    }
+    int event = get_event_num(signum);
     SGX_DBG(DBG_E, "sgx_raise signum %d event %d\n", signum, event);
 #if SGX_HAS_FSGSBASE != 0
     sgx_raise(event);
