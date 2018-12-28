@@ -256,7 +256,8 @@ void _DkExceptionReturn (void * event)
     restore_pal_context(&uc, ctx);
 }
 
-void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc)
+void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
+                             PAL_XREGS_STATE * xregs_state)
 {
     SGX_DBG(DBG_E, "_DkHandleExternalEvent "
             "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",

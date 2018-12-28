@@ -253,6 +253,20 @@ enclave_entry:
 	.type sgx_ocall, @function
 
 sgx_ocall:
+	##
+	## %rbp => *sgx_context_t = %gx:SGX_STACK
+	## xsave area
+	##    xregs
+	## sgx_context_t:
+	##   rax = 0: place holder
+	##   rcx
+	##   ...
+	##   rflags
+	##   rip
+	## previous rbp
+	## previous rip
+	##
+
 	pushq %rbp
 	movq %rsp, %rbp
 
@@ -276,12 +290,13 @@ sgx_ocall:
 	pushq %rbx
 	pushq %rdx
 	pushq %rcx
-	# no RAX
+	pushq $0        # place holder for RAX
 
 	movq %rsp, %rbp
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
 	subq %rax,  %rsp
+	subq $PAL_FP_XSTATE_MAGIC2_SIZE, %rsp
 	andq $XSAVE_ALIGN, %rsp
 
 	pushq %rdi
@@ -327,7 +342,10 @@ sgx_ocall:
 	# RDI - return value
 	# RSI - external event (if there is any)
 
-	movq %rdi, %rax
+	## sgx_context_t::rax = %rdi
+	movq %gs:SGX_STACK, %rax
+	movq (%rax), %rax # %rax = &sgx_context_t::rax
+	movq %rdi, (%rax) # return value
 
 	# restore FSBASE if necessary
 	movq %gs:SGX_FSBASE, %rbx
@@ -335,23 +353,19 @@ sgx_ocall:
 	je .Lno_fsbase
 	WRFSBASE_RBX
 .Lno_fsbase:
-
 	cmpq $0, %rsi
 	je .Lno_external_event
 
-	pushq %rax
-	movq %rsi, %rdi
-	movq %rsp, %rsi
+	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
+	movq %rax, %rsi	## %rsi = sgx_context_t * uc
 
-	movq %gs:SGX_SIG_STACK_HIGH, %rbx
-	subq $8, %rbx
-	movq %rsi, (%rbx)
-	movq %rbx, %rsp
+	## %rdx = PAL_XREGS_STATE * xregs_state
+	movq %gs:SGX_STACK, %rdx
+	addq $8, %rdx
 
+	movq %gs:SGX_SIG_STACK_HIGH, %rsp
 	callq _DkHandleExternalEvent
 
-	popq %rsp
-	popq %rax
 
 .Lno_external_event:
 	# restore the stack
@@ -359,11 +373,10 @@ sgx_ocall:
 
 	popq %rbp
 	movq %rsp, %rdi
-	pushq %rax
 	callq restore_xregs
-	popq %rax
 	movq %rbp, %rsp
 
+	popq %rax
 	popq %rcx
 	popq %rdx
 	popq %rbx
