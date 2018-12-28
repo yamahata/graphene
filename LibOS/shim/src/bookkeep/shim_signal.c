@@ -577,7 +577,9 @@ static void __setup_sig_frame(
 
     //ucontext_t * uc = event->uc;
     //struct _libc_fpstate * fpstate = uc->uc_mcontext.fpregs;
-    struct _libc_fpstate * fpstate = context->fpregs;
+    struct _libc_xregs_state * xregs_state =
+        (struct _libc_xregs_state * )context->fpregs;
+    struct _libc_fpstate * fpstate = &xregs_state->fpstate;
     unsigned int fpstate_size = fpstate_size_get(fpstate);
 
     //unsigned long sp = uc->uc_mcontext.gregs[REG_RSP];
