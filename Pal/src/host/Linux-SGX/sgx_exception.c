@@ -77,7 +77,7 @@ void restore_rt (void) asm ("__restore_rt") __attribute__((visibility("hidden"))
 DEFINE_RESTORE_RT(__NR_rt_sigreturn)
 #endif
 
-int set_sighandler (int * sigs, int nsig, void * handler)
+static int set_sighandler (int * sigs, int nsig, void * handler)
 {
     struct sigaction action;
     action.sa_handler = (void (*)(int)) handler;
@@ -89,6 +89,8 @@ int set_sighandler (int * sigs, int nsig, void * handler)
 #endif
 
     __sigemptyset((__sigset_t *) &action.sa_mask);
+    __sigaddset((__sigset_t *) &action.sa_mask, SIGTERM);
+    __sigaddset((__sigset_t *) &action.sa_mask, SIGINT);
     __sigaddset((__sigset_t *) &action.sa_mask, SIGCONT);
 
     for (int i = 0 ; i < nsig ; i++) {
