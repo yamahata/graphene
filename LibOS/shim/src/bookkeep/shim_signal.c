@@ -697,6 +697,31 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
     }
 
     debug("%s handled\n", signal_name(sig));
+    /*
+     * check if we're in LibOS or Pal before get_signal_handler() which
+     * acquires thread->lock. It may cause deadlock if we tries to lock
+     * from host signal handler.
+     */
+    if (context == NULL &&
+        ((is_internal(context) && !is_signal_allowed(context)) ||
+         !DkInPal(context))) {
+
+        /* TODO queue signal without malloc() */
+
+        /*
+         * host signal handler is called during PAL or LibOS.
+         * It means thread is in systeam call emulation. actual signal
+         * delivery is done by deliver_signal_on_sysret()
+         */
+        debug("appending signal for trigger syscall return  "
+              "%p (%d, %p, %p)\n", handler, sig, &signal->info,
+              &signal->context);
+        debug("waking up for signal "
+              "thread: %p tcb: %p, tcb->flags: %p 0x%lx tid: %d\n",
+              thread, tcb, &tcb->flags, tcb->flags, tcb->tid);
+        set_bit(SHIM_FLAG_SIGPENDING, &(((shim_tcb_t*)thread->tcb)->flags));
+        return;
+    }
 
     get_signal_handler(thread, sig, &handler, &restorer);
     if ((void *) handler == (void *) 1) /* SIG_IGN */
@@ -711,36 +736,19 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
     if (!signal->context_stored)
         __store_context(tcb, NULL, signal);
 
-    if (context != NULL &&
-        (!is_internal(context) || is_signal_allowed(context)) &&
-        !DkInPal(context)) {
-        if (is_sigreturn_jmp_emulation(context)) {
-            /* see syscallas.S */
-            context->rip = *(long*)((void*)context->rsp - 128 - 8);
+    if (is_sigreturn_jmp_emulation(context)) {
+        /* see syscallas.S */
+        context->rip = *(long*)((void*)context->rsp - 128 - 8);
 
 #if 0
-            gregset_t *gregset = &event->uc->uc_mcontext.gregs;
-            (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - 128 - 8);
+        gregset_t *gregset = &event->uc->uc_mcontext.gregs;
+        (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - 128 - 8);
 #else
-            context->rip = *((PAL_NUM*)(context->rsp - 128 - 8));
+        context->rip = *((PAL_NUM*)(context->rsp - 128 - 8));
 #endif
-        }
-        __setup_sig_frame(tcb, sig, signal, event, context,
-                          handler, restorer);
-    } else {
-        /*
-         * host signal handler is called during PAL or LibOS.
-         * It means thread is in systeam call emulation. actual signal
-         * delivery is done by deliver_signal_on_sysret()
-         */
-        debug("appending signal for trigger syscall return  "
-              "%p (%d, %p, %p)\n", handler, sig, &signal->info,
-              &signal->context);
-        debug("waking up for signal "
-              "thread: %p tcb: %p, tcb->flags: %p 0x%lx tid: %d\n",
-              thread, tcb, &tcb->flags, tcb->flags, tcb->tid);
-        set_bit(SHIM_FLAG_SIGPENDING, &(((shim_tcb_t*)thread->tcb)->flags));
     }
+    __setup_sig_frame(tcb, sig, signal, event, context,
+                      handler, restorer);
 }
 
 int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
