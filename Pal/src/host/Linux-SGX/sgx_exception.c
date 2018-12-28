@@ -212,8 +212,8 @@ static void _DkTerminateSighandler (int signum, siginfo_t * info,
 #else
     if (rip != (unsigned long) async_exit_pointer) {
 #endif
-        SGX_DBG(DBG_E, "_DkTerminateSighandler rip 0x%08lx signum event %d\n",
-                rip, signum, get_event_num(signum));
+        SGX_DBG(DBG_E, "_DkTerminateSighandler rip 0x%08lx signum event %d tid %d\n",
+                rip, signum, get_event_num(signum), INLINE_SYSCALL(gettid, 0));
         uc->uc_mcontext.gregs[REG_RIP] = (uint64_t) sgx_entry_return;
         uc->uc_mcontext.gregs[REG_RDI] = -PAL_ERROR_INTERRUPTED;
         uc->uc_mcontext.gregs[REG_RSI] = get_event_num(signum);
@@ -260,7 +260,8 @@ static void _DkResumeSighandler (int signum, siginfo_t * info,
     }
 
     int event = get_event_num(signum);
-    SGX_DBG(DBG_E, "sgx_raise signum %d event %d\n", signum, event);
+    SGX_DBG(DBG_E, "sgx_raise signum %d event %d tid %d\n",
+            signum, event, INLINE_SYSCALL(gettid, 0));
 #if SGX_HAS_FSGSBASE != 0
     sgx_raise(event);
 #else
