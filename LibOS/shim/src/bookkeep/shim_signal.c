@@ -919,6 +919,7 @@ int handle_next_signal(ucontext_t * user_uc)
     if (__get_signal_to_deliver(&deliver)) {
         __setup_next_sig_frame(SHIM_GET_TLS(), deliver.sig, deliver.signal,
                                user_uc, deliver.handler, deliver.restorer);
+        free(deliver.signal);
         return 1;
     }
     return 0;
@@ -1036,6 +1037,7 @@ bool deliver_signal_on_sysret(void * stack,
     regs->rsi = (unsigned long)&user_sigframe->info;
     regs->rdx = (unsigned long)&user_sigframe->uc;
 
+    free(signal);
     return true;
 }
 
