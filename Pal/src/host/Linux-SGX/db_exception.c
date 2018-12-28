@@ -185,6 +185,7 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
+    assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     save_xregs(xregs_state);
 
 #if SGX_HAS_FSGSBASE == 0
@@ -194,6 +195,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         wrfsbase(fsbase);
 #endif
 
+    SGX_DBG(DBG_E, "exit_info 0x%08x\n", exit_info);
     union {
         sgx_arch_exitinfo_t info;
         int intval;
@@ -204,6 +206,12 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         event_num = exit_info;
     } else {
         switch (ei.info.vector) {
+        case SGX_EXCEPTION_VECTOR_DE:
+            event_num = PAL_EVENT_DIVZERO;
+            break;
+        case SGX_EXCEPTION_VECTOR_BR:
+            event_num = PAL_EVENT_NUM_BOUND;
+            break;
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
                 restore_sgx_context(uc, xregs_state);
@@ -211,18 +219,27 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             }
             event_num = PAL_EVENT_ILLEGAL;
             break;
-        case SGX_EXCEPTION_VECTOR_DE:
+        case SGX_EXCEPTION_VECTOR_MF:
             event_num = PAL_EVENT_DIVZERO;
             break;
         case SGX_EXCEPTION_VECTOR_AC:
             event_num = PAL_EVENT_MEMFAULT;
             break;
+        case SGX_EXCEPTION_VECTOR_XM:
+            event_num = PAL_EVENT_DIVZERO;
+            break;
+        case SGX_EXCEPTION_VECTOR_DB:
+        case SGX_EXCEPTION_VECTOR_BP:
         default:
             restore_sgx_context(uc, xregs_state);
             return;
         }
     }
-    if (ADDR_IN_PAL(uc->rip)) {
+    if (ADDR_IN_PAL(uc->rip) &&
+        /* event isn't asynchronous */
+        (event_num != PAL_EVENT_QUIT &&
+         event_num != PAL_EVENT_SUSPEND &&
+         event_num != PAL_EVENT_RESUME)) {
         printf("*** An unexpected AEX vector occurred inside PAL. "
                "Exiting the thread. "
                "(vector = 0x%x, type = 0x%x valid = %d, RIP = +%08lx) ***\n",
