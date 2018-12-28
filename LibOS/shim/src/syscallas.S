@@ -219,7 +219,7 @@ __syscallas_signal_allowed_2_begin:
 
         movq 2 * 8(%rsp), %rcx  // saved %rsp
         movq 3 * 8(%rsp), %rax  // saved %rip
-        movq %rax, -128-8(%rcx) // 8 bytes below redzone
+        movq %rax, -REDZONE_SIZE-8(%rcx) // 8 bytes below redzone
 
         popq %rax
         popq %rcx
@@ -242,7 +242,7 @@ __syscallas_signal_allowed_2_begin:
          */
         movq -3 * 8(%rsp), %rsp
 __syscallas_need_emulate_jmp:
-        jmp *-128-8(%rsp)
+        jmp *-REDZONE_SIZE-8(%rsp)
 __syscallas_signal_allowed_2_end:
 
         /*
@@ -252,10 +252,10 @@ __syscallas_signal_allowed_2_end:
          */
 __syscallas_signal_allowed_3_begin:
 syscall_wrapper:
-        subq $128, %rsp
+        subq $REDZONE_SIZE, %rsp
         pushq %rcx
         call *syscalldb@GOTPCREL(%rip)
         popq %rcx
-        addq $128, %rsp
+        addq $REDZONE_SIZE, %rsp
         jmp *%rcx       /* syscalldb preserves %rcx */
 __syscallas_signal_allowed_3_end:

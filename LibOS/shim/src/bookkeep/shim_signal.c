@@ -584,7 +584,7 @@ static void __setup_sig_frame(
 
     //unsigned long sp = uc->uc_mcontext.gregs[REG_RSP];
     unsigned long sp = context->rsp;
-    sp -= 128;  /* redzone */
+    sp -= REDZONE_SIZE;  /* redzone */
     fpregset_t user_fp = (fpregset_t)ALIGN_DOWN_PTR(sp - fpstate_size, 64UL);
     struct sigframe * user_sigframe = (struct sigframe *)ALIGN_DOWN_PTR(user_fp - sizeof(struct sigframe), 16UL) - 8;
     user_sigframe->restorer = restorer;
@@ -738,13 +738,13 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
 
     if (is_sigreturn_jmp_emulation(context)) {
         /* see syscallas.S */
-        context->rip = *(long*)((void*)context->rsp - 128 - 8);
+        context->rip = *(long*)((void*)context->rsp - REDZONE_SIZE - 8);
 
 #if 0
         gregset_t *gregset = &event->uc->uc_mcontext.gregs;
-        (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - 128 - 8);
+        (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - REDZONE_SIZE - 8);
 #else
-        context->rip = *((PAL_NUM*)(context->rsp - 128 - 8));
+        context->rip = *((PAL_NUM*)(context->rsp - REDZONE_SIZE - 8));
 #endif
     }
     __setup_sig_frame(tcb, sig, signal, event, context,

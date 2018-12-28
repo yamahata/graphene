@@ -392,6 +392,10 @@ struct sigframe {
     /* fpstate follows */
 };
 
+#ifndef REDZONE_SIZE
+# define REDZONE_SIZE    128
+#endif
+
 /* bits/ustat.h */
 struct __kernel_ustat
   {

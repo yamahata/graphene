@@ -26,5 +26,6 @@ void dummy(void)
     DEFINE(SIGFRAME_SIZE, sizeof(struct sigframe));
     DEFINE(FP_XSTATE_SIZE, sizeof(struct _libc_fpstate));
     DEFINE(FP_XSTATE_MAGIC2_SIZE, FP_XSTATE_MAGIC2_SIZE);
+    DEFINE(REDZONE_SIZE, REDZONE_SIZE);
 }
 
