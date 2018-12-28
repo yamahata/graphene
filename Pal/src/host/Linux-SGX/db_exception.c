@@ -76,11 +76,14 @@ PAL_BOL DkInPal (const PAL_CONTEXT * context)
     return context && ADDR_IN_PAL(context->rip);
 }
 
-static void restore_sgx_context (sgx_context_t * uc)
+static void restore_sgx_context (sgx_context_t * uc,
+                                 PAL_XREGS_STATE * xregs_state)
 {
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
-    restore_xregs((uint64_t)(uc + 1));
+    if (xregs_state == NULL)
+        xregs_state = (PAL_XREGS_STATE*)SYNTHETIC_STATE;
+    restore_xregs(xregs_state);
     __restore_sgx_context(uc);
 }
 
@@ -105,10 +108,11 @@ static void restore_pal_context (sgx_context_t * uc, PAL_CONTEXT * ctx)
     uc->rflags = ctx->efl;
     uc->rip = ctx->rip;
 
-    restore_sgx_context(uc);
+    restore_sgx_context(uc, ctx->fpregs);
 }
 
-static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc)
+static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc,
+                              PAL_XREGS_STATE * xregs_state)
 {
     memset(ctx, 0, sizeof(*ctx));
 
@@ -130,8 +134,23 @@ static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc)
     ctx->r15 = uc->r15;
     ctx->efl = uc->rflags;
     ctx->rip = uc->rip;
-    /* .cs = 0x33, .fs = 0, .gs = 0 .ss = 0x2b */
-    ctx->csgsfs = (0x33UL << 24) | 0x2bUL;
+    union pal_csgsfs csgsfs = {
+        .cs = 0x33, // __USER_CS(5) | 0(GDT) | 3(RPL)
+        .fs = 0,
+        .gs = 0,
+        .ss = 0x2b, // __USER_DS(6) | 0(GDT) | 3(RPL)
+    };
+    ctx->csgsfs = csgsfs.csgsfs;
+
+    ctx->fpregs = xregs_state;
+    PAL_FPX_SW_BYTES * fpx_sw = &xregs_state->fpstate.sw_reserved;
+    fpx_sw->magic1 = PAL_FP_XSTATE_MAGIC1;
+    fpx_sw->extended_size = xsave_size;
+    fpx_sw->xfeatures = xsave_features;
+    fpx_sw->xstate_size = xsave_size + PAL_FP_XSTATE_MAGIC2_SIZE;
+    memset(fpx_sw->padding, 0, sizeof(fpx_sw->padding));
+    *(__typeof__(PAL_FP_XSTATE_MAGIC2)*)((void*)xregs_state + xsave_size) =
+        PAL_FP_XSTATE_MAGIC2;
 }
 
 static PAL_BOL handle_ud(sgx_context_t * uc)
@@ -165,7 +184,8 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
-    save_xregs((uint64_t)(uc + 1));
+    PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
+    save_xregs(xregs_state);
 
 #if SGX_HAS_FSGSBASE == 0
     /* set the FS first if necessary */
@@ -186,7 +206,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         switch (ei.info.vector) {
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
-                restore_sgx_context(uc);
+                restore_sgx_context(uc, xregs_state);
                 /* NOTREACHED */
             }
             event_num = PAL_EVENT_ILLEGAL;
@@ -198,7 +218,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             event_num = PAL_EVENT_MEMFAULT;
             break;
         default:
-            restore_sgx_context(uc);
+            restore_sgx_context(uc, xregs_state);
             return;
         }
     }
@@ -216,7 +236,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     }
 
     PAL_CONTEXT ctx;
-    save_pal_context(&ctx, uc);
+    save_pal_context(&ctx, uc, xregs_state);
 
     /* TODO: save EXINFO in MISC regsion and populate those */
     ctx.err = 0;
@@ -264,7 +284,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
 
     PAL_CONTEXT ctx;
-    save_pal_context(&ctx, uc);
+    save_pal_context(&ctx, uc, xregs_state);
     ctx.err = 0;
     ctx.trapno = event; /* XXX TODO: what kind of value should be returned in
                          * trapno. This is very implementation specific
