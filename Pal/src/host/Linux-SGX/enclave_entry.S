@@ -201,8 +201,9 @@ enclave_entry:
          * offset it below calculation */
 	addq $REDZONE_SIZE, %rsi
 
+	/* 8 is to avoid redzone clobber */
 #define STACK_FRAME_SUB \
-	(SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_XSTATE_MAGIC2_SIZE)
+	(SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_XSTATE_MAGIC2_SIZE + 8)
 .Lon_signal_stack:
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
@@ -435,11 +436,6 @@ sgx_ocall:
 __restore_sgx_context:
 	movq %rdi, %rsp
 
-	/* store saved %rip at -REDZONE-8(%saved rsp) */
-	movq SGX_CONTEXT_RIP(%rsp), %rax
-	movq SGX_CONTEXT_RSP(%rsp), %rcx
-	movq %rax, - REDZONE_SIZE - 8(%rcx)
-
 	popq %rax
 	popq %rcx
 	popq %rdx
@@ -454,6 +450,16 @@ __restore_sgx_context:
 	popq %r11
 	popq %r12
 	popq %r13
+
+	/* store saved %rip at -REDZONE-8(%saved rsp).
+	 * notice sizeof(sgx_context_t) = 144 > 128.
+	 */
+	## see the definition of sgx_context_t
+	## currently %rsp is pointing to %r14
+	movq -10 * 8(%rsp), %r14 # %r14 = saved %rsp
+	movq 3 * 8(%rsp), %r15	 # %r15 = saved %rip
+	movq %r15, - REDZONE_SIZE - 8(%r14)
+
 	popq %r14
 	popq %r15
 	popfq
@@ -478,11 +484,6 @@ __restore_sgx_context_need_jmp_emulate:
 __restore_sgx_context_retry:
 	movq %rdi, %rsp
 
-	/* store saved %rip at -REDZONE-8(%saved rsp) */
-	movq SGX_CONTEXT_RIP(%rsp), %rax
-	movq SGX_CONTEXT_RSP(%rsp), %rcx
-	movq %rax, - REDZONE_SIZE - 8(%rcx)
-
 	popq %rax
 	popq %rcx
 	popq %rdx
@@ -497,6 +498,18 @@ __restore_sgx_context_retry:
 	popq %r11
 	popq %r12
 	popq %r13
+
+	/* store saved %rip at -REDZONE-8(%saved rsp) */
+	## there is sgx_context_t + xsave area + 8 bytes + redzone
+	## is allocated on the stack. So it doesn't clobber saved
+	## registers.
+	##
+	## see the definition of sgx_context_t
+	## currently %rsp is pointing to %r14
+	movq -10 * 8(%rsp), %r14 # %r14 = saved %rsp
+	movq 3 * 8(%rsp), %r15	 # %r15 = saved %rip
+	movq %r15, - REDZONE_SIZE - 8(%r14)
+
 	popq %r14
 
 	movq %gs:SGX_SELF, %r15
