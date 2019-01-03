@@ -287,23 +287,36 @@ enclave_entry:
 
 sgx_ocall:
 	##
-	## %rbp => *sgx_context_t = %gx:SGX_STACK
-	## xsave area
-	##    xregs
+	//## %rbp => *sgx_context_t = %gx:SGX_STACK
 	## sgx_context_t:
 	##   rax = 0: place holder
 	##   rcx
 	##   ...
 	##   rflags
 	##   rip
+	## xsave area
+	##    xregs
 	## previous rbp
-	## previous rip
+	## previous rip: pushed by callq
 	##
 
 	pushq %rbp
 	movq %rsp, %rbp
 
 	movq 8(%rbp), %rax
+
+	movq xsave_size@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	addq $(PAL_FP_XSTATE_MAGIC2_SIZE + 8), %rax
+	subq %rax, %rsp
+	andq $~(PAL_XSTATE_ALIGN - 1), %rsp
+
+	pushq %rdi
+	movq %rsp, %rdi
+	addq $8, %rdi	/* adjust pushq %rdi above */
+	callq save_xregs
+	popq %rdi
+
 	pushq %rax	# previous RIP
 	pushfq
 	pushq %r15
@@ -325,12 +338,13 @@ sgx_ocall:
 	pushq %rcx
 	pushq $0        # place holder for RAX
 
+#if 0
 	movq %rsp, %rbp
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
 	subq %rax,  %rsp
 	subq $PAL_FP_XSTATE_MAGIC2_SIZE, %rsp
-	andq $XSAVE_ALIGN, %rsp
+	andq $~(XSAVE_ALIGN - 1), %rsp
 
 	pushq %rdi
 	movq %rsp, %rdi
@@ -339,6 +353,7 @@ sgx_ocall:
 	popq %rdi
 
 	pushq %rbp
+#endif
 	movq %rsp, %gs:SGX_STACK
 
 	jmp .Leexit
@@ -393,8 +408,10 @@ sgx_ocall:
 	movq %rax, %rsi	## %rsi = sgx_context_t * uc
 
 	## %rdx = PAL_XREGS_STATE * xregs_state
-	movq %gs:SGX_STACK, %rdx
-	addq $8, %rdx
+	// movq %gs:SGX_STACK, %rdx
+	// addq $8, %rdx
+	movq %rsi, %rdx
+	addq $SGX_CONTEXT_SIZE, %rdx
 
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
 	callq _DkHandleExternalEvent
@@ -404,11 +421,16 @@ sgx_ocall:
 	# restore the stack
 	movq %gs:SGX_STACK, %rsp
 
-	popq %rbp
+	// popq %rbp
 	movq %rsp, %rdi
+	addq $SGX_CONTEXT_SIZE, %rdi
 	callq restore_xregs
-	movq %rbp, %rsp
+	// movq %rbp, %rsp
 
+#if 1
+	movq %rsp, %rdi
+	jmp __restore_sgx_context(%rip)
+#else
 	popq %rax
 	popq %rcx
 	popq %rdx
@@ -428,6 +450,7 @@ sgx_ocall:
 	addq $8, %rsp	# skip RIP
 	popq %rbp
 	retq
+#endif
 
 	# void __restore_sgx_context (sgx_context_t *uc)
 	# __attribute__((noreturn))
