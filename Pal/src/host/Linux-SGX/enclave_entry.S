@@ -431,7 +431,7 @@ sgx_ocall:
 
 #if 1
 	movq %rsp, %rdi
-	jmp __restore_sgx_context(%rip)
+	jmp __restore_sgx_context@GOTPCREL(%rip)
 #else
 	popq %rax
 	popq %rcx
