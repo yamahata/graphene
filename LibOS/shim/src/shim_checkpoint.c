@@ -733,8 +733,10 @@ static int restore_checkpoint_cma(
     }
 
     if (!DkPhysicalMemoryMap(pal_control.parent_process,
-                             nentries, addrs, sizes, prots))
+                             nentries, addrs, sizes, prots)) {
+        debug("DkPhyscalMemoryMap failed\n");
         return -PAL_ERRNO;
+    }
 
     return 0;
 }
@@ -1075,6 +1077,7 @@ int do_migrate_process (int (*migrate) (struct shim_cp_store *,
                                       0, argv);
 
     if (!proc) {
+        debug("DkProcessCreate failed\n");
         ret = -PAL_ERRNO;
         goto err;
     }
@@ -1119,11 +1122,13 @@ int do_migrate_process (int (*migrate) (struct shim_cp_store *,
 
     /* Create process and IPC bookkeepings */
     if (!(new_process = create_new_process(true))) {
+        debug("create_new_process failed\n");
         ret = -ENOMEM;
         goto err;
     }
 
     if (!(new_process->self = create_ipc_port(0, false))) {
+        debug("create_ipc_port failed\n");
         ret = -EACCES;
         goto err;
     }
@@ -1228,6 +1233,7 @@ int do_migrate_process (int (*migrate) (struct shim_cp_store *,
         goto err;
     } else if (bytes < sizeof(struct newproc_header)) {
         ret = -EACCES;
+        debug("too small header\n");
         goto err;
     }
 
@@ -1254,8 +1260,10 @@ int do_migrate_process (int (*migrate) (struct shim_cp_store *,
      * For socket and RPC streams, we need to migrate the PAL handles
      * to the new process using PAL calls.
      */
-    if ((ret = send_handles_on_stream(proc, cpstore)) < 0)
+    if ((ret = send_handles_on_stream(proc, cpstore)) < 0) {
+        debug("send_handles_on_stream failed\n");
         goto err;
+    }
 
     SAVE_PROFILE_INTERVAL(migrate_send_pal_handles);
 
@@ -1276,6 +1284,7 @@ int do_migrate_process (int (*migrate) (struct shim_cp_store *,
                          NULL, 0);
     if (bytes == 0) {
         ret = -PAL_ERRNO;
+        debug("DkStreamRead failed\n");
         goto err;
     }
 
