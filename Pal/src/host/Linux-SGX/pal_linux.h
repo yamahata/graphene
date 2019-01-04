@@ -221,11 +221,13 @@ extern struct pal_enclave_config {
 
 #ifdef IN_ENCLAVE
 #define SGX_DBG(class, fmt...) \
-    do { if ((class) & DBG_LEVEL) printf(fmt); } while (0)
+    do { if ((class) & DBG_LEVEL) {printf("trts %s:%d:%s ", __FILE__, __LINE__, __func__); printf(fmt);} } while (0)
 #else
 int pal_printf(const char * fmt, ...);
 
 #define SGX_DBG(class, fmt...) \
+    do { if ((class) & DBG_LEVEL) {pal_printf("urts %s:%d:%s ", __FILE__, __LINE__, __func__);pal_printf(fmt);} } while (0)
+#define __SGX_DBG(class, fmt...) \
     do { if ((class) & DBG_LEVEL) pal_printf(fmt); } while (0)
 #endif
 
