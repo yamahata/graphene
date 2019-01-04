@@ -296,6 +296,7 @@ sgx_ocall:
 	##   rip
 	## xsave area
 	##    xregs
+	## (padding)
 	## previous rbp
 	## previous rip: pushed by callq
 	##
@@ -303,20 +304,21 @@ sgx_ocall:
 	pushq %rbp
 	movq %rsp, %rbp
 
-	movq 8(%rbp), %rax
-
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
 	addq $(PAL_FP_XSTATE_MAGIC2_SIZE + 8), %rax
 	subq %rax, %rsp
 	andq $~(PAL_XSTATE_ALIGN - 1), %rsp
 
+	pushq %rdx
 	pushq %rdi
 	movq %rsp, %rdi
-	addq $8, %rdi	/* adjust pushq %rdi above */
+	addq $2 * 8, %rdi	/* adjust pushq %rdx; pushq %rdi above */
 	callq save_xregs
 	popq %rdi
+	popq %rdx
 
+	movq 8(%rbp), %rax
 	pushq %rax	# previous RIP
 	pushfq
 	pushq %r15
@@ -392,7 +394,7 @@ sgx_ocall:
 
 	## sgx_context_t::rax = %rdi
 	movq %gs:SGX_STACK, %rax
-	movq (%rax), %rax # %rax = &sgx_context_t::rax
+	// movq (%rax), %rax # %rax = &sgx_context_t::rax
 	movq %rdi, (%rax) # return value
 
 	# restore FSBASE if necessary
