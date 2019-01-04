@@ -287,7 +287,6 @@ enclave_entry:
 
 sgx_ocall:
 	##
-	//## %rbp => *sgx_context_t = %gx:SGX_STACK
 	## sgx_context_t:
 	##   rax = 0: place holder
 	##   rcx
@@ -340,22 +339,6 @@ sgx_ocall:
 	pushq %rcx
 	pushq $0        # place holder for RAX
 
-#if 0
-	movq %rsp, %rbp
-	movq xsave_size@GOTPCREL(%rip), %rax
-	movl (%rax), %eax
-	subq %rax,  %rsp
-	subq $PAL_FP_XSTATE_MAGIC2_SIZE, %rsp
-	andq $~(XSAVE_ALIGN - 1), %rsp
-
-	pushq %rdi
-	movq %rsp, %rdi
-	addq $8, %rdi	/* adjust pushq %rdi above */
-	callq save_xregs
-	popq %rdi
-
-	pushq %rbp
-#endif
 	movq %rsp, %gs:SGX_STACK
 
 	jmp .Leexit
@@ -394,7 +377,6 @@ sgx_ocall:
 
 	## sgx_context_t::rax = %rdi
 	movq %gs:SGX_STACK, %rax
-	// movq (%rax), %rax # %rax = &sgx_context_t::rax
 	movq %rdi, (%rax) # return value
 
 	# restore FSBASE if necessary
@@ -408,12 +390,8 @@ sgx_ocall:
 
 	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
 	movq %rax, %rsi	## %rsi = sgx_context_t * uc
-
-	## %rdx = PAL_XREGS_STATE * xregs_state
-	// movq %gs:SGX_STACK, %rdx
-	// addq $8, %rdx
 	movq %rsi, %rdx
-	addq $SGX_CONTEXT_SIZE, %rdx
+	addq $SGX_CONTEXT_SIZE, %rdx ## %rdx = PAL_XREGS_STATE * xregs_state
 
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
 	callq _DkHandleExternalEvent
@@ -423,36 +401,12 @@ sgx_ocall:
 	# restore the stack
 	movq %gs:SGX_STACK, %rsp
 
-	// popq %rbp
 	movq %rsp, %rdi
 	addq $SGX_CONTEXT_SIZE, %rdi
 	callq restore_xregs
-	// movq %rbp, %rsp
 
-#if 1
 	movq %rsp, %rdi
-	jmp __restore_sgx_context@GOTPCREL(%rip)
-#else
-	popq %rax
-	popq %rcx
-	popq %rdx
-	popq %rbx
-	addq $16, %rsp	# skip RSP and RBP
-	popq %rsi
-	popq %rdi
-	popq %r8
-	popq %r9
-	popq %r10
-	popq %r11
-	popq %r12
-	popq %r13
-	popq %r14
-	popq %r15
-	popfq
-	addq $8, %rsp	# skip RIP
-	popq %rbp
-	retq
-#endif
+	jmp __restore_sgx_context
 
 	# void __restore_sgx_context (sgx_context_t *uc)
 	# __attribute__((noreturn))
@@ -477,7 +431,7 @@ __restore_sgx_context:
 	popq %r13
 
 	/* store saved %rip at -REDZONE-8(%saved rsp).
-	 * notice sizeof(sgx_context_t) = 144 > 128.
+	 * notice sizeof(sgx_context_t) = 144 > 128 = REDZONE_SIZE.
 	 */
 	## see the definition of sgx_context_t
 	## currently %rsp is pointing to %r14
