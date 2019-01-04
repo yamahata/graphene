@@ -186,7 +186,16 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
         uc->rdx = high;
         uc->rax = low;
         return true;
+    } else if (instr[0] == 0x0f && instr[1] == 0x05) {
+        /* syscall: LibOS knows how to handle this */
+        return false;
     }
+    printf("unknown instruction ");
+    for (int i = 0; i < 32 /* at least 2 instructions */; i++) {
+        char hexstr[2 + 1];
+        printf("%s ", __bytes2hexstr(&instr[i], 1, hexstr, sizeof(hexstr)));
+    }
+    printf("\n");
     return false;
 }
 
@@ -234,11 +243,12 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         wrfsbase(fsbase);
 #endif
 
-    SGX_DBG(DBG_E, "exit_info 0x%08x\n", exit_info);
     union {
         sgx_arch_exitinfo_t info;
         int intval;
     } ei = { .intval = exit_info };
+    SGX_DBG(DBG_E, "exit_info 0x%08x vector 0x%04x type 0x%04x reserved %x valid %d\n",
+            exit_info, ei.info.vector, ei.info.type, ei.info.reserved, ei.info.valid);
 
     int event_num;
     if (!ei.info.valid) {
@@ -303,7 +313,21 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     struct enclave_tls * tls = get_enclave_tls();
     clear_bit(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, &tls->flags);
     clear_bit(event_num, &tls->pending_async_event);
+    /* TODO: When EXINFO in MISC region is supported. retrieve address
+     * information from MISC
+     */
     PAL_NUM arg = 0;
+    switch (event_num) {
+    case PAL_EVENT_ILLEGAL:
+        arg = uc->rip;
+        break;
+    case PAL_EVENT_MEMFAULT:
+        /* TODO */
+        break;
+    default:
+        /* nothing */
+        break;
+    }
     _DkGenericSignalHandle(event_num, arg, &ctx, PAL_TRUE);
 
     _DkExceptionHandlerLoop(&ctx);
