@@ -31,7 +31,7 @@ struct enclave_tls {
     void *   stack;
     void *   ustack_top;
     void *   ustack;
-    void *   thread;
+    PAL_HANDLE thread;
 };
 
 #ifndef DEBUG
