@@ -84,6 +84,8 @@ struct shim_tcb {
 
 #include <stddef.h>
 
+void init_tcb (shim_tcb_t * tcb);
+
 #ifdef SHIM_TCB_USE_GS
 typedef struct __libc_tcb
 {

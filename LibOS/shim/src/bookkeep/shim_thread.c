@@ -23,6 +23,7 @@
  * This file contains codes to maintain bookkeeping of threads in library OS.
  */
 
+#include <shim_defs.h>
 #include <shim_internal.h>
 #include <shim_thread.h>
 #include <shim_handle.h>
@@ -723,7 +724,7 @@ static int resume_wrapper (void * param)
     __libc_tcb_t * libc_tcb = (__libc_tcb_t *) thread->tcb;
     assert(libc_tcb);
     shim_tcb_t * tcb = thread->shim_tcb;
-#ifdef LIBOS_TCB_USE_GS
+#ifdef SHIM_TCB_USE_GS
     memcpy(SHIM_GET_TLS(), tcb, sizeof(*tcb));
     thread->shim_tcb = SHIM_GET_TLS();
     tcb = thread->shim_tcb;
@@ -764,27 +765,28 @@ BEGIN_RS_FUNC(running_thread)
 
         thread->pal_handle = handle;
     } else {
+#ifdef SHIM_TCB_USE_GS
+        if (thread->shim_tcb) {
+            memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
+            thread->shim_tcb = SHIM_GET_TLS();
+        }
+        debug_setbuf(thread->shim_tcb, false);
+#endif
         __libc_tcb_t * libc_tcb = thread->tcb;
 
         if (libc_tcb) {
             shim_tcb_t * tcb = thread->shim_tcb;
             assert(tcb->context.sp);
-            tcb->debug_buf = SHIM_GET_TLS()->debug_buf;
             allocate_tls(libc_tcb, thread->user_tcb, thread);
             /* Temporarily disable preemption until the thread resumes. */
             __disable_preempt(tcb);
             debug_setprefix(tcb);
             debug("after resume, set tcb to %p\n", libc_tcb);
         } else {
+            init_tcb(thread->shim_tcb);
             set_cur_thread(thread);
         }
 
-#ifdef LIBOS_TCB_USE_GS
-        if (thread->shim_tcb) {
-            memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
-            thread->shim_tcb = SHIM_GET_TLS();
-        }
-#endif
         thread->in_vm = thread->is_alive = true;
         thread->pal_handle = PAL_CB(first_thread);
     }

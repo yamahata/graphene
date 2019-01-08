@@ -20,6 +20,7 @@
  * This file contains the entry point of system call table in library OS.
  */
 
+#include <shim_defs.h>
 #include <shim_tls.h>
 #include <shim_unistd_defs.h>
 #include "asm-offsets.h"
@@ -51,7 +52,7 @@
         .type __syscallas_signal_allowed_3_end, @object
         .type __syscallas_need_emulate_jmp, @object
 
-#ifdef LIBOS_TCB_USE_GS
+#ifdef SHIM_TCB_USE_GS
 # define TCB_SEGMENT_REG	%gs
 #else
 # define TCB_SEGMENT_REG	%fs

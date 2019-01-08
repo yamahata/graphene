@@ -23,6 +23,7 @@
  * This file contains entry and exit functions of library OS.
  */
 
+#include <shim_defs.h>
 #include <shim_internal.h>
 #include <shim_tls.h>
 #include <shim_thread.h>
@@ -181,7 +182,7 @@ char ** library_paths;
 LOCKTYPE __master_lock;
 bool lock_enabled;
 
-static void init_tcb (shim_tcb_t * tcb)
+void init_tcb (shim_tcb_t * tcb)
 {
     tcb->canary = SHIM_TLS_CANARY;
     tcb->self = tcb;
@@ -209,7 +210,7 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
     shim_tcb_t * shim_tcb;
 #ifdef SHIM_TCB_USE_GS
     shim_tcb = SHIM_GET_TLS();
-    if (!user)
+    if (!user && &tcb->shim_tcb != shim_tcb)
         memset(&tcb->shim_tcb, 0xaa, sizeof(tcb->shim_tcb));
 #else
     shim_tcb = &tcb->shim_tcb;
@@ -227,7 +228,10 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
         shim_tcb->tid = 0;
     }
 
-    DkSegmentRegister(PAL_SEGMENT_FS, tcb);
+#ifdef SHIM_TCB_USE_GS
+    if (user)
+#endif
+        DkSegmentRegister(PAL_SEGMENT_FS, tcb);
     assert(SHIM_TLS_CHECK_CANARY());
 }
 
@@ -250,7 +254,11 @@ void populate_tls (__libc_tcb_t * tcb, bool user)
         thread->shim_tcb = shim_tcb;
     }
 
-    DkSegmentRegister(PAL_SEGMENT_FS, tcb);
+#ifdef SHIM_TCB_USE_GS
+    if (user)
+#endif
+        DkSegmentRegister(PAL_SEGMENT_FS, tcb);
+
     assert(SHIM_TLS_CHECK_CANARY());
 }
 
