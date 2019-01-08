@@ -732,7 +732,7 @@ static int resume_wrapper (void * param)
 
     thread->in_vm = thread->is_alive = true;
     allocate_tls(libc_tcb, thread->user_tcb, thread);
-    debug_setbuf(tcb, true);
+    debug_setbuf(tcb, false);
     debug("set tcb to %p\n", libc_tcb);
 
     object_wait_one_safe(thread_start_event);
