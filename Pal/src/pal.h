@@ -103,15 +103,6 @@ static inline PAL_TCB * pal_get_tcb (void)
     return tcb;
 }
 
-static inline uint8_t * pal_get_libos_tcb(void)
-{
-    uint8_t * libos_tcb;
-    asm ("movq %%gs:%c1,%q0"
-         : "=r" (libos_tcb)
-         : "i" (offsetof(PAL_TCB, libos_tcb)));
-    return libos_tcb;
-}
-
 #ifdef __x86_64__
 union pal_csgsfs {
     struct {
