@@ -683,10 +683,10 @@ BEGIN_RS_FUNC(thread)
     if (thread->cwd)
         get_dentry(thread->cwd);
 
-    DEBUG_RS("tid=%d,tgid=%d,parent=%d,stack=%p,frameptr=%p,tcb=%p",
+    DEBUG_RS("tid=%d,tgid=%d,parent=%d,stack=%p,frameptr=%p,tcb=%p,shim_tcb=%p",
              thread->tid, thread->tgid,
              thread->parent ? thread->parent->tid : thread->tid,
-             thread->stack, thread->frameptr, thread->tcb);
+             thread->stack, thread->frameptr, thread->tcb, thread->shim_tcb);
 }
 END_RS_FUNC(thread)
 
@@ -706,9 +706,11 @@ BEGIN_CP_FUNC(running_thread)
         memcpy(new_thread->tcb, thread->tcb, sizeof(__libc_tcb_t));
     }
 #ifdef SHIM_TCB_USE_GS
-    ptr_t off = ADD_CP_OFFSET(sizeof(shim_tcb_t));
-    new_thread->shim_tcb = (void *)(base + off);
-    memcpy(new_thread->shim_tcb, thread->shim_tcb, sizeof(shim_tcb_t));
+    if (thread->shim_tcb) {
+        ptr_t toff = ADD_CP_OFFSET(sizeof(shim_tcb_t));
+        new_thread->shim_tcb = (void *)(base + toff);
+        memcpy(new_thread->shim_tcb, thread->shim_tcb, sizeof(shim_tcb_t));
+    }
 #endif
 }
 END_CP_FUNC(running_thread)
@@ -747,6 +749,10 @@ BEGIN_RS_FUNC(running_thread)
 
     if (!thread->user_tcb)
         CP_REBASE(thread->tcb);
+#ifdef SHIM_TCB_USE_GS
+    if (thread->shim_tcb)
+        CP_REBASE(thread->shim_tcb);
+#endif
 
     thread->signal_logs = malloc(sizeof(struct shim_signal_log) *
                                  NUM_SIGS);
@@ -774,8 +780,10 @@ BEGIN_RS_FUNC(running_thread)
         }
 
 #ifdef LIBOS_TCB_USE_GS
-        memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
-        thread->shim_tcb = SHIM_GET_TLS();
+        if (thread->shim_tcb) {
+            memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
+            thread->shim_tcb = SHIM_GET_TLS();
+        }
 #endif
         thread->in_vm = thread->is_alive = true;
         thread->pal_handle = PAL_CB(first_thread);
