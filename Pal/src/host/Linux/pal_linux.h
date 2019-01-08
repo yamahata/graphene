@@ -192,7 +192,7 @@ struct event_queue {
 
 DEFINE_LISTP(event_queue);
 typedef union pal_tcb_linux {
-    struct pal_tcb common;
+    PAL_TCB common;
     struct {
         union pal_tcb_linux *  self;
         uint8_t     libos_tcb[PAL_LIBOS_TCB_SIZE];
@@ -209,11 +209,7 @@ int pal_thread_init (void * tcbptr);
 
 static inline PAL_TCB_LINUX * get_tcb_linux (void)
 {
-    PAL_TCB_LINUX * tcb;
-    asm ("movq %%gs:%c1,%q0"
-         : "=r" (tcb)
-         : "i" (offsetof(PAL_TCB, self)));
-    return tcb;
+    return (PAL_TCB_LINUX*)pal_get_tcb();
 }
 
 #endif /* PAL_LINUX_H */

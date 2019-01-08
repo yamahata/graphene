@@ -5,7 +5,7 @@
 #define __SGX_TLS_H__
 
 union enclave_tls {
-    struct pal_tcb common;
+    PAL_TCB common;
     struct {
         union enclave_tls * self;
         uint8_t libos_tcb[PAL_LIBOS_TCB_SIZE];
@@ -61,10 +61,7 @@ extern uint64_t dummy_debug_variable;
 
 static inline union enclave_tls * get_enclave_tls(void)
 {
-    union enclave_tls * __self;
-    asm ("movq %%gs:%c1, %q0": "=r" (__self)
-         : "i" (offsetof(union enclave_tls, self)));
-    return __self;
+    return (union enclave_tls*)pal_get_tcb();
 }
 # endif
 
