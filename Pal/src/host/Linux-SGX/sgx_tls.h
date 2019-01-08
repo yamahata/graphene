@@ -12,6 +12,7 @@ union enclave_tls {
 
         /* privateto Pal/Linux-SGX */
         uint64_t enclave_size;
+        uint64_t tls_offset;
         uint64_t tcs_offset;
         uint64_t initial_stack_offset;
         uint64_t sig_stack_offset;

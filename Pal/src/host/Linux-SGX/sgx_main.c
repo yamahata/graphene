@@ -419,8 +419,9 @@ int initialize_enclave (struct pal_enclave * enclave)
 
             for (int t = 0 ; t < enclave->thread_num ; t++) {
                 union enclave_tls * gs = data + pagesize * t;
-                gs->self = gs;
+                gs->self = NULL;
                 gs->enclave_size = enclave->size;
+                gs->tls_offset = tls_area->addr + pagesize * t;
                 gs->tcs_offset = tcs_area->addr + pagesize * t;
                 gs->initial_stack_offset =
                     stack_areas[t].addr + ENCLAVE_STACK_SIZE;
