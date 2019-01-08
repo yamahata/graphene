@@ -67,7 +67,7 @@ struct shim_tcb {
     struct shim_context     context;
     unsigned int            tid;
     int                     pal_errno;
-    void *                  debug_buf;
+    struct debug_buf *      debug_buf;
 #define SHIM_FLAG_SIGPENDING   0
     unsigned long           flags;
 
