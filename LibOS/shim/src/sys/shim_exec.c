@@ -86,13 +86,13 @@ int shim_do_execve_rtld (struct shim_handle * hdl, const char ** argv,
 
     SAVE_PROFILE_INTERVAL(close_CLOEXEC_files_for_exec);
 
-    void * tcb = malloc(sizeof(__libc_tcb_t));
+    __libc_tcb_t * tcb = malloc(sizeof(*tcb));
     if (!tcb)
         return -ENOMEM;
 
     populate_tls(tcb, false);
-    __disable_preempt(&((__libc_tcb_t *) tcb)->shim_tcb); // Temporarily disable preemption
-                                                          // during execve().
+    __disable_preempt(SHIM_GET_TLS()); // Temporarily disable preemption
+                                       // during execve().
     debug("set tcb to %p\n", tcb);
 
     put_handle(cur_thread->exec);

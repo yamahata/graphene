@@ -51,15 +51,21 @@
         .type __syscallas_signal_allowed_3_end, @object
         .type __syscallas_need_emulate_jmp, @object
 
+#ifdef LIBOS_TCB_USE_GS
+# define TCB_SEGMENT_REG	%gs
+#else
+# define TCB_SEGMENT_REG	%fs
+#endif
+
 .macro CLEAR_SAVED_AREA_IN_SHIM_TLS
-        movq $0, %fs:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR)
-        movq $0, %fs:(SHIM_TCB_OFFSET + TCB_SP)
-        movq $0, %fs:(SHIM_TCB_OFFSET + TCB_RET_IP)
-        movq $0, %fs:(SHIM_TCB_OFFSET + TCB_REGS)
+        movq $0, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR)
+        movq $0, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SP)
+        movq $0, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_RET_IP)
+        movq $0, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_REGS)
 .endm
 
 .macro CHECK_SIGNAL_PENDING_BIT
-        lock btrq $SHIM_FLAG_SIGPENDING, %fs:(SHIM_TCB_OFFSET + TCB_FLAGS)
+        lock btrq $SHIM_FLAG_SIGPENDING, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_FLAGS)
 .endm
 
 syscalldb:
@@ -98,12 +104,12 @@ isdef:
         pushq %r14
         pushq %r15
 
-        movq %rax, %fs:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR)
+        movq %rax, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR)
         leaq 16(%rbp), %rax
-        movq %rax, %fs:(SHIM_TCB_OFFSET + TCB_SP)
+        movq %rax, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SP)
         movq 8(%rbp), %rax
-        movq %rax, %fs:(SHIM_TCB_OFFSET + TCB_RET_IP)
-        movq %rsp, %fs:(SHIM_TCB_OFFSET + TCB_REGS)
+        movq %rax, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_RET_IP)
+        movq %rsp, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_REGS)
 
         /* Translating x86_64 kernel calling convention to user-space
          * calling convention */
@@ -181,7 +187,7 @@ __syscallas_signal_allowed_1_end:
         jmp .Lret_signal
 
 .Lsignal_not_delivered:
-        movq %fs:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR), %rax
+        movq TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR), %rax
         movq %r11, %rsp
         jmp .Lret_nosignal
 

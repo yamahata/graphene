@@ -715,7 +715,7 @@ int resume_wrapper (void * param)
 
     __libc_tcb_t * libc_tcb = (__libc_tcb_t *) thread->tcb;
     assert(libc_tcb);
-    shim_tcb_t * tcb = &libc_tcb->shim_tcb;
+    shim_tcb_t * tcb = thread->shim_tcb;
     assert(tcb->context.sp);
 
     thread->in_vm = thread->is_alive = true;
@@ -751,7 +751,7 @@ BEGIN_RS_FUNC(running_thread)
         __libc_tcb_t * libc_tcb = thread->tcb;
 
         if (libc_tcb) {
-            shim_tcb_t * tcb = &libc_tcb->shim_tcb;
+            shim_tcb_t * tcb = thread->shim_tcb;
             assert(tcb->context.sp);
             tcb->debug_buf = SHIM_GET_TLS()->debug_buf;
             allocate_tls(libc_tcb, thread->user_tcb, thread);

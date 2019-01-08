@@ -181,13 +181,14 @@ char ** library_paths;
 LOCKTYPE __master_lock;
 bool lock_enabled;
 
-void init_tcb (shim_tcb_t * tcb)
+static void init_tcb (shim_tcb_t * tcb)
 {
     tcb->canary = SHIM_TLS_CANARY;
     tcb->self = tcb;
 }
 
-void copy_tcb (shim_tcb_t * new_tcb, const shim_tcb_t * old_tcb)
+#ifndef SHIM_TCB_USE_GS
+static void copy_tcb (shim_tcb_t * new_tcb, const shim_tcb_t * old_tcb)
 {
     memset(new_tcb, 0, sizeof(shim_tcb_t));
     new_tcb->canary = SHIM_TLS_CANARY;
@@ -198,22 +199,32 @@ void copy_tcb (shim_tcb_t * new_tcb, const shim_tcb_t * old_tcb)
     new_tcb->flags = new_tcb->flags;
     new_tcb->debug_buf = old_tcb->debug_buf;
 }
+#endif
 
 /* This function is used to allocate tls before interpreter start running */
 void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
 {
     assert(tcb);
     tcb->tcb = tcb;
-    init_tcb(&tcb->shim_tcb);
+    shim_tcb_t * shim_tcb;
+#ifdef SHIM_TCB_USE_GS
+    shim_tcb = SHIM_GET_TLS();
+    if (!user)
+        memset(&tcb->shim_tcb, 0xaa, sizeof(tcb->shim_tcb));
+#else
+    shim_tcb = &tcb->shim_tcb;
+#endif
+    init_tcb(shim_tcb);
 
     if (thread) {
-        thread->tcb       = tcb;
-        thread->user_tcb  = user;
-        tcb->shim_tcb.tp  = thread;
-        tcb->shim_tcb.tid = thread->tid;
+        thread->tcb      = tcb;
+        thread->user_tcb = user;
+        thread->shim_tcb = shim_tcb;
+        shim_tcb->tp  = thread;
+        shim_tcb->tid = thread->tid;
     } else {
-        tcb->shim_tcb.tp  = NULL;
-        tcb->shim_tcb.tid = 0;
+        shim_tcb->tp  = NULL;
+        shim_tcb->tid = 0;
     }
 
     DkSegmentRegister(PAL_SEGMENT_FS, tcb);
@@ -224,12 +235,19 @@ void populate_tls (__libc_tcb_t * tcb, bool user)
 {
     assert(tcb);
     tcb->tcb = tcb;
-    copy_tcb(&tcb->shim_tcb, SHIM_GET_TLS());
+    shim_tcb_t * shim_tcb;
+#ifdef SHIM_TCB_USE_GS
+    shim_tcb = SHIM_GET_TLS();
+#else
+    shim_tcb = &tcb->shim_tcb;
+    copy_tcb(shim_tcb, SHIM_GET_TLS());
+#endif
 
-    struct shim_thread * thread = (struct shim_thread *) tcb->shim_tcb.tp;
+    struct shim_thread * thread = shim_tcb->tp;
     if (thread) {
         thread->tcb = tcb;
         thread->user_tcb = user;
+        thread->shim_tcb = shim_tcb;
     }
 
     DkSegmentRegister(PAL_SEGMENT_FS, tcb);
@@ -681,9 +699,9 @@ int shim_init (int argc, void * args, void ** return_stack)
     __libc_tcb_t tcb;
     memset(&tcb, 0, sizeof(__libc_tcb_t));
     allocate_tls(&tcb, false, NULL);
-    __disable_preempt(&tcb.shim_tcb); // Temporarily disable preemption for delaying any signal
+    __disable_preempt(SHIM_GET_TLS()); // Temporarily disable preemption for delaying any signal
                                       // that arrives during initialization
-    debug_setbuf(&tcb.shim_tcb, true);
+    debug_setbuf(SHIM_GET_TLS(), true);
     debug("set tcb to %p\n", &tcb);
 
 #ifdef PROFILE

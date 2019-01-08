@@ -86,6 +86,7 @@ struct shim_thread {
     void * stack, * stack_top, * stack_red;
     __libc_tcb_t * tcb;
     bool user_tcb; /* is tcb assigned by user? */
+    shim_tcb_t * shim_tcb;
     void * frameptr;
 
     REFTYPE ref_count;
@@ -126,6 +127,22 @@ struct shim_simple_thread {
 
 int init_thread (void);
 
+#ifdef SHIM_TCB_USE_GS
+static inline struct shim_thread * SHIM_THREAD_SELF(void)
+{
+    struct shim_thread * __self;
+    asm ("movq %%gs:%c1,%q0" : "=r" (__self)
+         : "i" (offsetof(__libc_tcb_t, shim_tcb.tp)));
+    return __self;
+}
+
+static inline struct shim_thread * SAVE_SHIM_THREAD_SELF(struct shim_thread * __self)
+{
+     asm ("movq %q0,%%gs:%c1" : : "r" (__self),
+          "i" (offsetof(__libc_tcb_t, shim_tcb.tp)));
+     return __self;
+}
+#else
 static inline struct shim_thread * SHIM_THREAD_SELF(void)
 {
     struct shim_thread * __self;
@@ -140,6 +157,7 @@ static inline struct shim_thread * SAVE_SHIM_THREAD_SELF(struct shim_thread * __
           "i" (offsetof(__libc_tcb_t, shim_tcb.tp)));
      return __self;
 }
+#endif
 
 void get_thread (struct shim_thread * thread);
 void put_thread (struct shim_thread * thread);

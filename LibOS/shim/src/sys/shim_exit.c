@@ -175,7 +175,7 @@ static int exit_late (int error_code, void (*func)(int))
     stack_top &= ~15;
 
     populate_tls(&cur_thread->exit_tcb, false);
-    debug_setbuf(&cur_thread->exit_tcb.shim_tcb, true);
+    debug_setbuf(SHIM_GET_TLS(), true);
 
     int ret;
     __asm__ volatile(
