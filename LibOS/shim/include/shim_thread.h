@@ -337,8 +337,6 @@ struct clone_args {
     void * return_pc;
 };
 
-int clone_implementation_wrapper(struct clone_args * arg);
-
 void * allocate_stack (size_t size, size_t protect_size, bool user);
 int populate_user_stack (void * stack, size_t stack_size,
                          int nauxv, elf_auxv_t ** auxpp,
