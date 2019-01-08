@@ -101,10 +101,8 @@ static inline bool SHIM_TLS_CHECK_CANARY(void)
 
 static inline shim_tcb_t * SHIM_GET_TLS(void)
 {
-    shim_tcb_t *__self;
-    asm ("movq %%gs:%c1,%q0" : "=r" (__self)
-         : "i" (offsetof(__libc_tcb_t, shim_tcb.self)));
-    return __self;
+    PAL_TCB * tcb = pal_get_tcb();
+    return (shim_tcb_t*)tcb->libos_tcb;
 }
 #else
 typedef struct

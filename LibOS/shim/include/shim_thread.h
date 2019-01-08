@@ -213,6 +213,7 @@ void set_cur_thread (struct shim_thread * thread)
 
         tcb->tp = thread;
         thread->tcb = container_of(tcb, __libc_tcb_t, shim_tcb);
+        thread->shim_tcb = tcb;
         tid = thread->tid;
 
         if (!IS_INTERNAL(thread) && !thread->signal_logs)

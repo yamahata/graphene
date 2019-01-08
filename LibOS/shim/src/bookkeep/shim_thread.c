@@ -705,10 +705,15 @@ BEGIN_CP_FUNC(running_thread)
         new_thread->tcb = (void *) (base + toff);
         memcpy(new_thread->tcb, thread->tcb, sizeof(__libc_tcb_t));
     }
+#ifdef SHIM_TCB_USE_GS
+    ptr_t off = ADD_CP_OFFSET(sizeof(shim_tcb_t));
+    new_thread->shim_tcb = (void *)(base + off);
+    memcpy(new_thread->shim_tcb, thread->shim_tcb, sizeof(shim_tcb_t));
+#endif
 }
 END_CP_FUNC(running_thread)
     
-int resume_wrapper (void * param)
+static int resume_wrapper (void * param)
 {
     struct shim_thread * thread = (struct shim_thread *) param;
     assert(thread);
@@ -716,6 +721,11 @@ int resume_wrapper (void * param)
     __libc_tcb_t * libc_tcb = (__libc_tcb_t *) thread->tcb;
     assert(libc_tcb);
     shim_tcb_t * tcb = thread->shim_tcb;
+#ifdef LIBOS_TCB_USE_GS
+    memcpy(SHIM_GET_TLS(), tcb, sizeof(*tcb));
+    thread->shim_tcb = SHIM_GET_TLS();
+    tcb = thread->shim_tcb;
+#endif
     assert(tcb->context.sp);
 
     thread->in_vm = thread->is_alive = true;
@@ -763,6 +773,10 @@ BEGIN_RS_FUNC(running_thread)
             set_cur_thread(thread);
         }
 
+#ifdef LIBOS_TCB_USE_GS
+        memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
+        thread->shim_tcb = SHIM_GET_TLS();
+#endif
         thread->in_vm = thread->is_alive = true;
         thread->pal_handle = PAL_CB(first_thread);
     }
