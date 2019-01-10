@@ -365,6 +365,9 @@ copy_envp:
             memcpy(new_auxp, *auxpp, nauxv * sizeof(elf_auxv_t));
     }
 
+    /* 16 bytes length of random bytes */
+    ALLOCATE_TOP(16);
+
     *((unsigned long *) ALLOCATE_TOP(sizeof(unsigned long))) = 0;
 
     /* x86_64 ABI requires 16 bytes alignment on stack
