@@ -210,8 +210,6 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
     shim_tcb_t * shim_tcb;
 #ifdef SHIM_TCB_USE_GS
     shim_tcb = SHIM_GET_TLS();
-    if (&tcb->shim_tcb != shim_tcb)
-        memset(&tcb->shim_tcb, 0xaa, sizeof(tcb->shim_tcb));
 #else
     shim_tcb = &tcb->shim_tcb;
 #endif
