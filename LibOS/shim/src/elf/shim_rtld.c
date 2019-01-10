@@ -1633,6 +1633,10 @@ int execute_elf_object (struct shim_handle * exec, int argc, const char ** argp,
     struct link_map * exec_map = __search_map_by_handle(exec);
     assert(exec_map);
 
+    /* random 16 bytes follows auxp */
+    ElfW(Addr) random = (ElfW(Addr))&auxp[8];
+    DkRandomBitsRead((PAL_PTR)random, 16);
+
     auxp[0].a_type = AT_PHDR;
     auxp[0].a_un.a_val = (__typeof(auxp[0].a_un.a_val)) exec_map->l_phdr;
     auxp[1].a_type = AT_PHNUM;
@@ -1645,7 +1649,9 @@ int execute_elf_object (struct shim_handle * exec, int argc, const char ** argp,
     auxp[4].a_un.a_val = interp_map ? interp_map->l_addr : 0;
     auxp[5].a_type = AT_SYSINFO_EHDR;
     auxp[5].a_un.a_val = (uint64_t)vdso_so;
-    auxp[6].a_type = AT_NULL;
+    auxp[6].a_type = AT_RANDOM;
+    auxp[6].a_un.a_val = random;
+    auxp[7].a_type = AT_NULL;
 
     ElfW(Addr) entry = interp_map ? interp_map->l_entry : exec_map->l_entry;
 
