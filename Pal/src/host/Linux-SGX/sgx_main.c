@@ -363,7 +363,7 @@ int initialize_enclave (struct pal_enclave * enclave)
     struct mem_area * exec_area = NULL;
     if (enclave->exec != -1) {
         exec_area = set_area("exec", false, true, enclave->exec, 0, 0,
-                             PROT_WRITE, SGX_PAGE_REG);
+                             0, SGX_PAGE_REG);
         TRY(scan_enclave_binary,
             enclave->exec, &exec_area->addr, &exec_area->size, NULL);
     }
