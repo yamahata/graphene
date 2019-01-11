@@ -42,6 +42,9 @@
 #include <asm/unistd.h>
 #include <asm/fcntl.h>
 
+_Static_assert(sizeof(shim_tcb_t) <= PAL_LIBOS_TCB_SIZE,
+               "shim_tcb_t is too big. increase PAL_LIBOS_TCB_SIZE");
+
 unsigned long allocsize;
 unsigned long allocshift;
 unsigned long allocmask;
