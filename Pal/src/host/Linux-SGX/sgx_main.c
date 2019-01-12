@@ -471,6 +471,8 @@ int initialize_enclave (struct pal_enclave * enclave)
         if (data)
             INLINE_SYSCALL(munmap, 2, data, areas[i].size);
     }
+    INLINE_SYSCALL(close, 1,pal_area->fd);
+    pal_area->fd = -1;
 
     TRY(init_enclave, &enclave_secs, &enclave_sigstruct, &enclave_token);
 
