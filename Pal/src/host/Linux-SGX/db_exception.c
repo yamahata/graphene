@@ -296,7 +296,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
                uc->rip - (uintptr_t) TEXT_START);
 #ifdef DEBUG
         while (true)
-            asm volatile("hlt");
+            asm volatile("pause");
 #endif
         _DkThreadExit();
     }
