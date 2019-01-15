@@ -241,6 +241,22 @@ static inline bool is_sigreturn_jmp_emulation(const PAL_CONTEXT * context)
         (void *)context->IP == (void *)&__syscallas_need_emulate_jmp;
 }
 
+static void print_regs(PAL_CONTEXT * ctx)
+{
+    sys_printf("rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n",
+               ctx->rax, ctx->rcx, ctx->rdx, ctx->rbx);
+    sys_printf("rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n",
+               ctx->rsp, ctx->rbp, ctx->rsi, ctx->rdi);
+    sys_printf("r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n",
+               ctx->r8, ctx->r9, ctx->r10, ctx->r11);
+    sys_printf("r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n",
+               ctx->r12, ctx->r13, ctx->r14, ctx->r15);
+    sys_printf("rflags: 0x%08lx rip: 0x%08lx\n",
+               ctx->efl, ctx->rip);
+    sys_printf("csgsfs: 0x%08lx err: 0x%08lx trapno %d odlmask 0x%08lx cr2: 0x%08lx\n",
+               ctx->csgsfs, ctx->err, ctx->trapno, ctx->oldmask, ctx->cr2);
+}
+
 static inline void internal_fault(const char* errstr,
                                   PAL_NUM addr, PAL_CONTEXT * context)
 {
@@ -254,6 +270,7 @@ static inline void internal_fault(const char* errstr,
                    addr, context ? context->IP : 0,
                    cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
 
+    print_regs(context);
     pause();
 }
 
@@ -291,6 +308,10 @@ static void memfault_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
     if (context)
         debug("memory fault at %08lx (IP = %08lx)\n", arg, context->IP);
+
+    print_regs(context);
+    debug("inst: 0x%08lx\n", context->IP);
+    debug_hex(context->IP, 32);
 
     struct shim_vma_val vma;
     int signo = SIGSEGV;
@@ -460,6 +481,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
              * %rcx: see the syscall_wrapper in syscallas.S
              * TODO: check SIGILL and ILL_ILLOPN
              */
+            debug("sigill (rip = %p %p)\n", rip, rip + 2);
             context->rcx = (long)rip + 2;
             context->rip = (long)&syscall_wrapper;
             // uc->uc_mcontext->gregs[REG_RCX] = (long)rip + 2;
