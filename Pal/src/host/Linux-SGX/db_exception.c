@@ -294,12 +294,30 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
                "(vector = 0x%x, type = 0x%x valid = %d, RIP = +%08lx) ***\n",
                ei.info.vector, ei.info.type, ei.info.valid,
                uc->rip - (uintptr_t) TEXT_START);
+        printf("rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n",
+               uc->rax, uc->rcx, uc->rdx, uc->rbx);
+        printf("rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n",
+               uc->rsp, uc->rbp, uc->rsi, uc->rdi);
+        printf("r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n",
+               uc->r8, uc->r9, uc->r10, uc->r11);
+        printf("r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n",
+               uc->r12, uc->r13, uc->r14, uc->r15);
+        printf("rflags: 0x%08lx rip: 0x%08lx\n",
+               uc->rflags, uc->rip);
 #ifdef DEBUG
+        for (int i = 0; i < 32 /* at least 2 instructions */; i++) {
+            char hexstr[2 + 1];
+            printf("%s ", __bytes2hexstr((void *)(uc->rip + i), 1, hexstr, sizeof(hexstr)));
+        }
+        printf("\n");
+        printf("pausing for debug\n");
         while (true)
             __asm__ volatile("hlt");
 #endif
         _DkThreadExit();
     }
+
+    SGX_DBG(DBG_E, "rip 0x%08lx\n", uc->rip);
 
     PAL_CONTEXT ctx;
     save_pal_context(&ctx, uc, xregs_state);
