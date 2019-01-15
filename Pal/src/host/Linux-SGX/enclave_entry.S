@@ -155,6 +155,7 @@ enclave_entry:
 
 .Lpend_async_event:
 	addq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
+	# %rdi = $PAL_EVENT_QUIT or $PAL_EVENT_SUSPEND or $PAL_EVENT_RESUME
 	lock btsq %rdi, (%rax)
 	subq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
 	lock btsq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%rax)
@@ -202,12 +203,13 @@ enclave_entry:
 	addq $REDZONE_SIZE, %rsi
 
 	/* 8 is to avoid redzone clobber */
+#define STACK_PADDING_SIZE	(PAL_FP_XSTATE_MAGIC2_SIZE + 8)
 #define STACK_FRAME_SUB \
-	(SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_XSTATE_MAGIC2_SIZE + 8)
+	(SGX_CONTEXT_SIZE + REDZONE_SIZE + STACK_PADDING_SIZE)
 .Lon_signal_stack:
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
-	addl $STACK_FRAME_SUB, %eax
+	addq $STACK_FRAME_SUB, %rax
 	subq %rax, %rsi
 	# Align xsave area to 64 bytes after sgx_context_t
 	# SGX_CONTEXT_SIZE = sizeof(sgx_context_t) = 144
@@ -287,6 +289,10 @@ enclave_entry:
 
 sgx_ocall:
 	##
+	## input:
+	## %rdi: code
+	## %rsi: void * ms
+	##
 	## sgx_context_t:
 	##   rax = 0: place holder
 	##   rcx
@@ -305,7 +311,7 @@ sgx_ocall:
 
 	movq xsave_size@GOTPCREL(%rip), %rax
 	movl (%rax), %eax
-	addq $(PAL_FP_XSTATE_MAGIC2_SIZE + 8), %rax
+	addq $STACK_PADDING_SIZE, %rax
 	subq %rax, %rsp
 	andq $~(PAL_XSTATE_ALIGN - 1), %rsp
 
@@ -390,7 +396,7 @@ sgx_ocall:
 
 	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
 	movq %rax, %rsi	## %rsi = sgx_context_t * uc
-	movq %rsi, %rdx
+	movq %rax, %rdx
 	addq $SGX_CONTEXT_SIZE, %rdx ## %rdx = PAL_XREGS_STATE * xregs_state
 
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
@@ -405,7 +411,7 @@ sgx_ocall:
 	addq $SGX_CONTEXT_SIZE, %rdi
 	callq restore_xregs
 
-	movq %rsp, %rdi
+	movq %gs:SGX_STACK, %rdi
 	jmp __restore_sgx_context
 
 	# void __restore_sgx_context (sgx_context_t *uc)
