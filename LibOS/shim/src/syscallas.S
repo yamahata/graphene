@@ -105,6 +105,23 @@ isdef:
         pushq %r14
         pushq %r15
 
+        ## struct shim_regs
+        ##   %r15
+        ##   %r14
+        ##   %r13
+        ##   %r12
+        ##   %r11
+        ##   %r10
+        ##   %r9
+        ##   %r8
+        ##   %rcx
+        ##   %rdx
+        ##   %rsi
+        ##   %rdi
+        ##   %rbx
+        ##   %rbp: previous %rbp <= %rbp: current %rbp
+        ## %rip: saved RIP
+        ## previous stack frame
         movq %rax, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR)
         leaq 16(%rbp), %rax
         movq %rax, TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SP)
