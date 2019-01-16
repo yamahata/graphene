@@ -253,7 +253,7 @@ static void print_regs(PAL_CONTEXT * ctx)
                ctx->r12, ctx->r13, ctx->r14, ctx->r15);
     sys_printf("rflags: 0x%08lx rip: 0x%08lx\n",
                ctx->efl, ctx->rip);
-    sys_printf("csgsfs: 0x%08lx err: 0x%08lx trapno %d odlmask 0x%08lx cr2: 0x%08lx\n",
+    sys_printf("csgsfs: 0x%08lx err: 0x%08lx trapno %ld odlmask 0x%08lx cr2: 0x%08lx\n",
                ctx->csgsfs, ctx->err, ctx->trapno, ctx->oldmask, ctx->cr2);
 }
 
@@ -311,7 +311,7 @@ static void memfault_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
     print_regs(context);
     debug("inst: 0x%08lx\n", context->IP);
-    debug_hex(context->IP, 32);
+    debug_hex((unsigned long*)context->IP, 32);
 
     struct shim_vma_val vma;
     int signo = SIGSEGV;
