@@ -29,10 +29,15 @@ if __name__ == "__main__":
     gdb.execute("set env IN_GDB = 1")
     gdb.execute("set env LD_PRELOAD = ")
 
+    gdb.execute("set pagination off")
+
     gdb.execute("handle SIGCONT pass noprint nostop")
     gdb.execute("handle SIGKILL pass print stop")
+    # gdb.execute("handle SIGILL pass print stop")
+    gdb.execute("handle SIGILL pass print nostop")
 
-    gdb.execute("set disable-randomization off")
+    #gdb.execute("set disable-randomization off")
+    gdb.execute("set disable-randomization on")
     gdb.execute("set detach-on-fork off")
     gdb.execute("set schedule-multiple on")
     gdb.execute("set follow-exec-mode same")
@@ -42,4 +47,4 @@ if __name__ == "__main__":
     gdb.execute("set displaced-stepping off")
 
     LoadCommandBreakpoint()
-    gdb.events.stop.connect(signal_handler)
+    # gdb.events.stop.connect(signal_handler)
