@@ -1,7 +1,14 @@
 all: $(target)
 
 go_executables = \
-	helloworld
+	exec \
+	execing-process \
+	goroutines-list \
+	goroutines-stress \
+	goroutines \
+	helloworld \
+	many-goroutines \
+	signal
 
 exec_target = \
 	$(go_executables)

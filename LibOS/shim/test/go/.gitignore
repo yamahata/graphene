@@ -1,2 +1,10 @@
-/helloworld
 /manifest
+
+# executables
+/execing-process
+/goroutines
+/goroutines-list
+/goroutines-stress
+/helloworld
+/many-goroutines
+/signal
