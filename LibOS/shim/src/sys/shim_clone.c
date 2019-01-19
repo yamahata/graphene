@@ -307,7 +307,13 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
     new_args->thread    = thread;
     new_args->parent    = self;
     new_args->stack     = user_stack_addr;
+    /* see syscall_wrapper and sigill handler for syscall emulation */
     new_args->return_pc = self->shim_tcb->context.ret_ip;
+    if (new_args->return_pc == __syscall_wrapper_after_syscall)
+        new_args->return_pc = self->shim_tcb->context.regs->rcx;
+    debug("ret_ip %p rcx %p stack %p)\n",
+          self->shim_tcb->context.ret_ip, self->shim_tcb->context.regs->rcx,
+          *(void **) user_stack_addr);
 
     // Invoke DkThreadCreate to spawn off a child process using the actual 
     // "clone" system call. DkThreadCreate allocates a stack for the child 

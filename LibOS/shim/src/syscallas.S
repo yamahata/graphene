@@ -42,6 +42,7 @@
         .global __syscallas_signal_allowed_3_begin
         .global __syscallas_signal_allowed_3_end
         .global __syscallas_need_emulate_jmp
+        .global __syscall_wrapper_after_syscall
         .type __syscallas_signal_allowed_0_begin, @object
         .type __syscallas_signal_allowed_0_end, @object
         .type __syscallas_signal_allowed_1_begin, @object
@@ -51,6 +52,7 @@
         .type __syscallas_signal_allowed_3_begin, @object
         .type __syscallas_signal_allowed_3_end, @object
         .type __syscallas_need_emulate_jmp, @object
+        .type __syscall_wrapper_after_syscall, @object
 
 #ifdef SHIM_TCB_USE_GS
 # define TCB_SEGMENT_REG	%gs
@@ -279,6 +281,7 @@ syscall_wrapper:
         subq $REDZONE_SIZE, %rsp
         pushq %rcx
         call *syscalldb@GOTPCREL(%rip)
+__syscall_wrapper_after_syscall:
         popq %rcx
         addq $REDZONE_SIZE, %rsp
         jmp *%rcx       /* syscalldb preserves %rcx */
