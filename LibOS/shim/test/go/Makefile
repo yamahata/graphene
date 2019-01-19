@@ -1,3 +1,6 @@
+GOPATH ?= $(shell go env GOPATH)
+GO = $(GOPATH)/bin/go
+
 all: $(target)
 
 go_executables = \
@@ -21,4 +24,4 @@ level = ../
 include ../Makefile
 
 %: %.go
-	go build $^
+	$(GO) build $^
