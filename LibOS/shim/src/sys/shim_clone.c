@@ -115,9 +115,7 @@ static int clone_implementation_wrapper(struct clone_args * arg)
     debug_setbuf(tcb, false);
     debug("set tcb to %p (stack allocated? %d)\n", my_thread->tcb, stack_allocated);
 
-    struct shim_regs * regs = __alloca(sizeof(struct shim_regs));
-    *regs = *arg->parent->shim_tcb->context.regs;
-
+    struct shim_regs regs = *arg->parent->shim_tcb->context.regs;
     if (my_thread->set_child_tid)
         *(my_thread->set_child_tid) = my_thread->tid;
 
@@ -140,7 +138,7 @@ static int clone_implementation_wrapper(struct clone_args * arg)
     debug("child swapping stack to %p return %p: %d\n",
           stack, return_pc, my_thread->tid);
 
-    tcb->context.regs = regs;
+    tcb->context.regs = &regs;
     tcb->context.sp = stack;
     tcb->context.ret_ip = return_pc;
 
@@ -289,29 +287,29 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
 
     enable_locking();
 
-    struct clone_args * new_args = __alloca(sizeof(struct clone_args));
-    memset(new_args, 0, sizeof(struct clone_args));
+    struct clone_args new_args;
+    memset(&new_args, 0, sizeof(struct clone_args));
 
-    new_args->create_event = DkNotificationEventCreate(PAL_FALSE);
-    if (!new_args->create_event) {
+    new_args.create_event = DkNotificationEventCreate(PAL_FALSE);
+    if (!new_args.create_event) {
         ret = -PAL_ERRNO;
         goto clone_thread_failed;
     }
 
-    new_args->initialize_event = DkNotificationEventCreate(PAL_FALSE);
-    if (!new_args->initialize_event) {
+    new_args.initialize_event = DkNotificationEventCreate(PAL_FALSE);
+    if (!new_args.initialize_event) {
         ret = -PAL_ERRNO;
         goto clone_thread_failed;
     }
 
-    new_args->thread    = thread;
-    new_args->parent    = self;
-    new_args->stack     = user_stack_addr;
+    new_args.thread    = thread;
+    new_args.parent    = self;
+    new_args.stack     = user_stack_addr;
     /* see syscall_wrapper and sigill handler for syscall emulation */
-    new_args->return_pc = self->shim_tcb->context.ret_ip;
-    if (new_args->return_pc == __syscall_wrapper_after_syscall)
-        new_args->return_pc = self->shim_tcb->context.regs->rcx;
-    debug("ret_ip %p rcx %p stack %p)\n",
+    new_args.return_pc = self->shim_tcb->context.ret_ip;
+    if (new_args.return_pc == __syscall_wrapper_after_syscall)
+        new_args.return_pc = (void*)self->shim_tcb->context.regs->rcx;
+    debug("ret_ip %p rcx 0x%08lx stack %p)\n",
           self->shim_tcb->context.ret_ip, self->shim_tcb->context.regs->rcx,
           *(void **) user_stack_addr);
 
@@ -322,7 +320,7 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
     // returns .The parent comes back here - however, the child is Happily 
     // running the function we gave to DkThreadCreate.
     PAL_HANDLE pal_handle = thread_create(clone_implementation_wrapper,
-                                          new_args, flags);
+                                          &new_args, flags);
     if (!pal_handle) {
         ret = -PAL_ERRNO;
         goto clone_thread_failed;
@@ -336,17 +334,17 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
     if (set_parent_tid)
         *set_parent_tid = tid;
 
-    DkEventSet(new_args->create_event);
-    object_wait_one_safe(new_args->initialize_event);
-    DkObjectClose(new_args->initialize_event);
+    DkEventSet(new_args.create_event);
+    object_wait_one_safe(new_args.initialize_event);
+    DkObjectClose(new_args.initialize_event);
     put_thread(thread);
     return tid;
 
 clone_thread_failed:
-    if (new_args->create_event)
-        DkObjectClose(new_args->create_event);
-    if (new_args->initialize_event)
-        DkObjectClose(new_args->initialize_event);
+    if (new_args.create_event)
+        DkObjectClose(new_args.create_event);
+    if (new_args.initialize_event)
+        DkObjectClose(new_args.initialize_event);
 failed:
     if (thread)
         put_thread(thread);
