@@ -229,10 +229,7 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
         shim_tcb->tid = 0;
     }
 
-#ifdef SHIM_TCB_USE_GS
-    if (user)
-#endif
-        DkSegmentRegister(PAL_SEGMENT_FS, tcb);
+    DkSegmentRegister(PAL_SEGMENT_FS, tcb);
     assert(SHIM_TLS_CHECK_CANARY());
 }
 
@@ -255,11 +252,7 @@ void populate_tls (__libc_tcb_t * tcb, bool user)
         thread->shim_tcb = shim_tcb;
     }
 
-#ifdef SHIM_TCB_USE_GS
-    if (user)
-#endif
-        DkSegmentRegister(PAL_SEGMENT_FS, tcb);
-
+    DkSegmentRegister(PAL_SEGMENT_FS, tcb);
     assert(SHIM_TLS_CHECK_CANARY());
 }
 
