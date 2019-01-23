@@ -165,7 +165,9 @@ ret:
 isundef:
 #ifdef DEBUG
         mov %rax, %rdi
+        pushq %rcx
         call *debug_unsupp@GOTPCREL(%rip)
+        popq %rcx
 #endif
         movq $-38, %rax		# ENOSYS = 38
         jmp ret
@@ -278,11 +280,10 @@ __syscallas_signal_allowed_2_end:
          */
 __syscallas_signal_allowed_3_begin:
 syscall_wrapper:
+        ## %rcx is preserved by syscalldb
         subq $REDZONE_SIZE, %rsp
-        pushq %rcx
         call *syscalldb@GOTPCREL(%rip)
 __syscall_wrapper_after_syscall:
-        popq %rcx
         addq $REDZONE_SIZE, %rsp
         jmp *%rcx       /* syscalldb preserves %rcx */
 __syscallas_signal_allowed_3_end:
