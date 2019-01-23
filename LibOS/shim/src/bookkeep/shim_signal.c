@@ -243,18 +243,20 @@ static inline bool is_sigreturn_jmp_emulation(const PAL_CONTEXT * context)
 
 static void print_regs(PAL_CONTEXT * ctx)
 {
-    sys_printf("rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n",
-               ctx->rax, ctx->rcx, ctx->rdx, ctx->rbx);
-    sys_printf("rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n",
-               ctx->rsp, ctx->rbp, ctx->rsi, ctx->rdi);
-    sys_printf("r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n",
-               ctx->r8, ctx->r9, ctx->r10, ctx->r11);
-    sys_printf("r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n",
-               ctx->r12, ctx->r13, ctx->r14, ctx->r15);
-    sys_printf("rflags: 0x%08lx rip: 0x%08lx\n",
-               ctx->efl, ctx->rip);
-    sys_printf("csgsfs: 0x%08lx err: 0x%08lx trapno %ld odlmask 0x%08lx cr2: 0x%08lx\n",
-               ctx->csgsfs, ctx->err, ctx->trapno, ctx->oldmask, ctx->cr2);
+    master_lock();
+    debug("rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n",
+          ctx->rax, ctx->rcx, ctx->rdx, ctx->rbx);
+    debug("rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n",
+          ctx->rsp, ctx->rbp, ctx->rsi, ctx->rdi);
+    debug("r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n",
+          ctx->r8, ctx->r9, ctx->r10, ctx->r11);
+    debug("r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n",
+          ctx->r12, ctx->r13, ctx->r14, ctx->r15);
+    debug("rflags: 0x%08lx rip: 0x%08lx\n",
+          ctx->efl, ctx->rip);
+    debug("csgsfs: 0x%08lx err: 0x%08lx trapno %ld odlmask 0x%08lx cr2: 0x%08lx\n",
+          ctx->csgsfs, ctx->err, ctx->trapno, ctx->oldmask, ctx->cr2);
+    master_unlock();
 }
 
 static inline void internal_fault(const char* errstr,
@@ -262,13 +264,13 @@ static inline void internal_fault(const char* errstr,
 {
     IDTYPE tid = get_cur_tid();
     if (is_internal(context))
-        sys_printf("%s at %08lx (IP = +0x%lx, VMID = %u, TID = %u)\n", errstr,
-                   addr, (void *) context->IP - (void *) &__load_address,
-                   cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
+        debug("%s at %08lx (IP = +0x%lx, VMID = %u, TID = %u)\n", errstr,
+              addr, (void *) context->IP - (void *) &__load_address,
+              cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
     else
-        sys_printf("%s at %08lx (IP = %lx, VMID = %u, TID = %u)\n", errstr,
-                   addr, context ? context->IP : 0,
-                   cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
+        debug("%s at %08lx (IP = %lx, VMID = %u, TID = %u)\n", errstr,
+              addr, context ? context->IP : 0,
+              cur_process.vmid, IS_INTERNAL_TID(tid) ? 0 : tid);
 
     print_regs(context);
     pause();
