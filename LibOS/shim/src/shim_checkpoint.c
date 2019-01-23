@@ -1456,6 +1456,10 @@ void restore_context (struct shim_context * context)
         memset(regs, 0, sizeof(struct shim_regs));
 
     debug("restore context: SP = %p, IP = %p\n", context->sp, context->ret_ip);
+#if 1
+    uint64_t * sp = context->sp;
+    debug("SP %p:  0x%08lx 0x%08lx 0x%08lx\n", sp, sp[0], sp[1], sp[2]);
+#endif
 
     regs[nregs] = (void *) context->sp;
     /* don't clobber redzone. If sigaltstack is used,
@@ -1467,12 +1471,13 @@ void restore_context (struct shim_context * context)
     struct shim_context * c = &tcb->context;
     debug("restore tcb: %p tcb->self: %p tcb->tp: %p tcb->tp->tcb.shim_tcb: %p\n",
           tcb, tcb->self, tcb->tp, &tcb->tp->tcb->shim_tcb);
-    debug("context %p c: %p SP = %p, IP = %p\n",
-          context, c, c->sp, c->ret_ip);
+    debug("context %p c: %p SP = %p, IP = %p %p\n",
+          context, c, c->sp, c->ret_ip, regs[nregs]);
     __enable_preempt(tcb);
 
     memset(context, 0, sizeof(struct shim_context));
 
+    debug("SP %p:  0x%08lx 0x%08lx 0x%08lx\n", sp, sp[0], sp[1], sp[2]);
     __asm__ volatile("movq %0, %%rsp\r\n"
                      "movq $0, %%rax\r\n"
                      "popq %%r15\r\n"
