@@ -78,6 +78,8 @@ struct pal_handle_thread {
     void * param;
 };
 
+PAL_IDX pal_tid_new(void);
+
 typedef struct pal_handle
 {
     /*
