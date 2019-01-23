@@ -28,6 +28,8 @@ int thread_function (void * argument)
 {
     mypid = getpid();
     int * ptr = (int *) argument;
+    printf("ptr: argument passed %p\n", ptr);
+    fflush(stdout);
     printf("in the child: pid (%016lx) = %d\n", (unsigned long) &mypid, mypid);
     fflush(stdout);
     printf("in the child: pid = %d\n", getpid());
