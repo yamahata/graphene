@@ -214,6 +214,7 @@ void pal_linux_main(const char ** arguments, const char ** environments,
     /* set up thread handle */
     PAL_HANDLE first_thread = malloc(HANDLE_SIZE(thread));
     SET_HANDLE_TYPE(first_thread, thread);
+    first_thread->thread.tid = pal_tid_new();
     first_thread->thread.tcs =
         enclave_base + GET_ENCLAVE_TLS(tcs_offset);
     SET_ENCLAVE_TLS(self,
