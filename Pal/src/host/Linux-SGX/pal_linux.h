@@ -240,7 +240,7 @@ static inline PAL_IDX current_tid(void)
         }                                                           \
     } while (0)
 #else
-int pal_printf (const char *fmt, ...);
+int pal_printf (const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 #define SGX_DBG(class, fmt...)                                          \
     do {                                                                \
