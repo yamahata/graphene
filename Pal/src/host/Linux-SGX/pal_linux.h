@@ -230,25 +230,24 @@ static inline PAL_IDX current_tid(void)
     return 0;
 }
 
-#define SGX_DBG(class, fmt...)                                      \
-    do {                                                            \
-        if ((class) & DBG_LEVEL) {                                  \
-            PAL_IDX tid = current_tid();                            \
-            printf("[trts %d] %s:%d:%s ",                           \
-                   tid, __FILE__, __LINE__, __func__);              \
-            printf(fmt);                                            \
-        }                                                           \
+#define SGX_DBG(class, fmt, ...)                                        \
+    do {                                                                \
+        if ((class) & DBG_LEVEL) {                                      \
+            PAL_IDX tid = current_tid();                                \
+            printf("[trts %d] %s:%d:%s " fmt,                           \
+                   tid, __FILE__, __LINE__, __func__, ##__VA_ARGS__);   \
+        }                                                               \
     } while (0)
 #else
 int pal_printf (const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-#define SGX_DBG(class, fmt...)                                          \
+#define SGX_DBG(class, fmt, ...)                                        \
     do {                                                                \
         if ((class) & DBG_LEVEL) {                                      \
             int tid = INLINE_SYSCALL(gettid, 0);                        \
-            pal_printf("[urts %d] %s:%d:%s ",                           \
-                       tid, __FILE__, __LINE__, __func__);              \
-            pal_printf(fmt);}                                           \
+            pal_printf("[urts %d] %s:%d:%s " fmt,                       \
+                       tid, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+        }                                                               \
     } while (0)
 
 #define __SGX_DBG(class, fmt...)                \
