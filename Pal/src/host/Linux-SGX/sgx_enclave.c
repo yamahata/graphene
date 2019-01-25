@@ -762,5 +762,9 @@ int ecall_thread_start (void)
 }
 
 void __abort(void) {
+    asm volatile("pause");
+    asm volatile("hlt");
+    int tid = INLINE_SYSCALL(gettid, 0);
+    INLINE_SYSCALL(tkill, 2, tid, SIGABRT);
     INLINE_SYSCALL(exit_group, 1, -1);
 }
