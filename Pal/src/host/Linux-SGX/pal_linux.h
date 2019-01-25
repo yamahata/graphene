@@ -188,6 +188,10 @@ extern struct pal_enclave_config {
 
 #else
 
+#ifndef SIGABRT
+# define SIGABRT    6
+#endif
+
 #ifdef DEBUG
 # ifndef SIGCHLD
 #  define SIGCHLD  17
