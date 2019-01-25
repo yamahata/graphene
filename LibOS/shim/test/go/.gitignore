@@ -1,10 +1,14 @@
 /manifest
 
 # executables
+/channel
 /execing-process
+/goroutine
 /goroutines
 /goroutines-list
 /goroutines-stress
 /helloworld
 /many-goroutines
 /signal
+/sleep
+/sleep-go
