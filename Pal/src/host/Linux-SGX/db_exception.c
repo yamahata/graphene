@@ -39,6 +39,26 @@
 #include <linux/signal.h>
 #include <ucontext.h>
 
+char * __bytes2hexdump(void * hex, size_t size, char * str, size_t len)
+{
+    static const char * ch = "0123456789abcdef";
+    assert(len >= size * 3 + 1);
+
+    uint8_t * hex_ = hex;
+    for (size_t i = 0 ; i < size ; i++) {
+        uint8_t h = hex_[i];
+        str[i * 3] = ch[h / 16];
+        str[i * 3 + 1] = ch[h % 16];
+        str[i * 3 + 2] = ' ';
+    }
+
+    str[size * 3] = 0;
+    return str;
+}
+
+#define alloca_bytes2hexdump(array, size)                               \
+    __bytes2hexdump((array), (size), __alloca((size) * 3 + 1), (size) * 3 + 1)
+
 typedef struct exception_event {
     PAL_IDX             event_num;
     PAL_CONTEXT *       context;
@@ -82,14 +102,17 @@ static void restore_sgx_context (sgx_context_t * uc,
                                  PAL_XREGS_STATE * xregs_state,
                                  PAL_BOL retry_event)
 {
-    SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
-            uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
+    SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p xregs_state: %p retry: %d uc+1: %p\n",
+            uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip,
+            xregs_state, retry_event, uc + 1);
     if (xregs_state == NULL)
         xregs_state = (PAL_XREGS_STATE*)SYNTHETIC_STATE;
+    assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     restore_xregs(xregs_state);
-    if (retry_event)
+    if (retry_event) {
+        assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
         __restore_sgx_context_retry(uc);
-    else
+    } else
         __restore_sgx_context(uc);
 }
 
@@ -191,11 +214,8 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
         return false;
     }
     printf("unknown instruction ");
-    for (int i = 0; i < 32 /* at least 2 instructions */; i++) {
-        char hexstr[2 + 1];
-        printf("%s ", __bytes2hexstr(&instr[i], 1, hexstr, sizeof(hexstr)));
-    }
-    printf("\n");
+    printf("%s\n", alloca_bytes2hexdump(instr,
+                                        32 /* at least 2 instructions */));
     return false;
 }
 
@@ -221,6 +241,7 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx)
 void _DkExceptionHandlerMore (sgx_context_t * uc)
 {
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
+    SGX_DBG(DBG_E, "uc %p xregs_state %p\n", uc, xregs_state);
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     save_xregs(xregs_state);
 
@@ -233,6 +254,7 @@ void _DkExceptionHandlerMore (sgx_context_t * uc)
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
+    SGX_DBG(DBG_E, "uc %p xregs_state %p\n", uc, xregs_state);
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     save_xregs(xregs_state);
 
@@ -305,11 +327,9 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         printf("rflags: 0x%08lx rip: 0x%08lx\n",
                uc->rflags, uc->rip);
 #ifdef DEBUG
-        for (int i = 0; i < 32 /* at least 2 instructions */; i++) {
-            char hexstr[2 + 1];
-            printf("%s ", __bytes2hexstr((void *)(uc->rip + i), 1, hexstr, sizeof(hexstr)));
-        }
-        printf("\n");
+        printf("%s\n",
+               alloca_bytes2hexdump((uint8_t*)uc->rip,
+                                    32 /* at least 2 instructions */));
         printf("pausing for debug\n");
         while (true)
             __asm__ volatile("hlt");
@@ -381,9 +401,10 @@ void _DkExceptionReturn (void * event)
 void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                              PAL_XREGS_STATE * xregs_state)
 {
-    SGX_DBG(DBG_E, "_DkHandleExternalEvent "
-            "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
-            uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
+    SGX_DBG(DBG_E,
+            "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p xregs_state %p\n",
+            uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip, xregs_state);
+    assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
 
     PAL_CONTEXT ctx;
     save_pal_context(&ctx, uc, xregs_state);
