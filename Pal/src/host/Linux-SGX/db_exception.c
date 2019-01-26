@@ -230,9 +230,8 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
         /* syscall: LibOS knows how to handle this */
         return false;
     }
-    printf("unknown instruction ");
-    printf("%s\n", alloca_bytes2hexdump(instr,
-                                        32 /* at least 2 instructions */));
+    SGX_DBG(DBG_E, "unknown instruction rip 0x%016lx %s\n", uc->rip,
+            alloca_bytes2hexdump(instr, 32 /* at least 2 instructions */));
     return false;
 }
 
@@ -331,19 +330,21 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
          event_num != PAL_EVENT_SUSPEND &&
          event_num != PAL_EVENT_RESUME)) {
         printf("*** An unexpected AEX vector occurred inside PAL. "
-               "Exiting the thread. "
-               "(vector = 0x%x, type = 0x%x valid = %d, RIP = +%08lx) ***\n",
+               "Exiting the thread. *** \n"
+               "(vector = 0x%x, type = 0x%x valid = %d, RIP = +%08lx)\n"
+               "tid: %d rip: 0x%08lx\n"
+               "rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n"
+               "rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n"
+               "r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n"
+               "r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n"
+               "rflags: 0x%08lx rip: 0x%08lx\n",
                ei.info.vector, ei.info.type, ei.info.valid,
-               uc->rip - (uintptr_t) TEXT_START);
-        printf("rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n",
-               uc->rax, uc->rcx, uc->rdx, uc->rbx);
-        printf("rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n",
-               uc->rsp, uc->rbp, uc->rsi, uc->rdi);
-        printf("r8 : 0x%08lx r9 : 0x%08lx r10: 0x%08lx r11: 0x%08lx\n",
-               uc->r8, uc->r9, uc->r10, uc->r11);
-        printf("r12: 0x%08lx r13: 0x%08lx r14: 0x%08lx r15: 0x%08lx\n",
-               uc->r12, uc->r13, uc->r14, uc->r15);
-        printf("rflags: 0x%08lx rip: 0x%08lx\n",
+               uc->rip - (uintptr_t) TEXT_START,
+               current_tid(), uc->rip,
+               uc->rax, uc->rcx, uc->rdx, uc->rbx,
+               uc->rsp, uc->rbp, uc->rsi, uc->rdi,
+               uc->r8, uc->r9, uc->r10, uc->r11,
+               uc->r12, uc->r13, uc->r14, uc->r15,
                uc->rflags, uc->rip);
 #ifdef DEBUG
         printf("%s\n",
