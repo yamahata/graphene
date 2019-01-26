@@ -20,7 +20,6 @@ struct pal_enclave_config pal_enclave_config;
 int xsave_enabled = 0;
 uint64_t xsave_features = 0;
 uint32_t xsave_size = 0;
-#define SYNTHETIC_STATE_SIZE   (512 + 64)  // 512 for legacy regs, 64 for xsave header
 //FXRSTOR only cares about the first 512 bytes, while
 //XRSTOR in compacted mode will ignore the first 512 bytes.
 const uint32_t SYNTHETIC_STATE[SYNTHETIC_STATE_SIZE/sizeof(uint32_t)]
