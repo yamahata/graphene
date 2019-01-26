@@ -105,6 +105,7 @@ typedef struct { char bytes[16]; } sgx_stub_t;
 
 extern uint64_t xsave_features;
 extern uint32_t xsave_size;
+#define SYNTHETIC_STATE_SIZE   (512 + 64)  // 512 for legacy regs, 64 for xsave header
 extern const uint32_t SYNTHETIC_STATE[];
 void init_xsave_size(uint64_t xfrm);
 void save_xregs(PAL_XREGS_STATE * xsave_area);
