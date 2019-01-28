@@ -388,8 +388,13 @@ void set_as_child (struct shim_thread * parent,
 
 void add_thread (struct shim_thread * thread)
 {
-    if (IS_INTERNAL(thread) || !list_empty(thread, list))
+    debug("add_thread(%p, %d, %ld)\n", thread, thread ? thread->tid : -1,
+          atomic_read(&thread->ref_count));
+
+    if (IS_INTERNAL(thread) || !list_empty(thread, list)) {
+        debug("add_thread: internal\n");
         return;
+    }
 
     struct shim_thread * tmp, * prev = NULL;
     lock(thread_list_lock);
@@ -397,6 +402,7 @@ void add_thread (struct shim_thread * thread)
     /* keep it sorted */
     listp_for_each_entry_reverse(tmp, &thread_list, list) {
         if (tmp->tid == thread->tid) {
+            debug("conflict");
             unlock(thread_list_lock);
             return;
         }
