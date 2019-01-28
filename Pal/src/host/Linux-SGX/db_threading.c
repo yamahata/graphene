@@ -65,7 +65,7 @@ PAL_IDX pal_tid_new(void)
     return atomic_inc_return(&pid);
 }
 
-void pal_start_thread (void)
+void pal_start_thread (uint64_t host_tid)
 {
     PAL_HANDLE new_thread = NULL;
     struct pal_handle_thread * tmp;
@@ -97,6 +97,7 @@ void pal_start_thread (void)
     SET_ENCLAVE_TLS(sig_stack_high,
                     GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base +
                     ENCLAVE_SIG_STACK_SIZE);
+    SET_ENCLAVE_TLS(common.host_tid, host_tid);
     callback((void *) param);
 }
 
