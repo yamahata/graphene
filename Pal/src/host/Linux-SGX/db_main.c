@@ -126,7 +126,7 @@ static int loader_filter (const char * key, int len)
 extern void * enclave_base;
 
 void pal_linux_main(const char ** arguments, const char ** environments,
-                    struct pal_sec * sec_info)
+                    struct pal_sec * sec_info, uint64_t host_tid)
 {
     PAL_HANDLE parent = NULL;
     unsigned long start_time = _DkSystemTimeQuery();
@@ -224,6 +224,7 @@ void pal_linux_main(const char ** arguments, const char ** environments,
     SET_ENCLAVE_TLS(common.self,
                     GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, (__pal_control.first_thread = first_thread));
+    SET_ENCLAVE_TLS(common.host_tid, host_tid);
 
     /* call main function */
     pal_main(pal_sec.instance_id, manifest, exec,
