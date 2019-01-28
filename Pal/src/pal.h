@@ -86,13 +86,15 @@ typedef union pal_handle
 
 #endif /* !IN_PAL */
 
+/* This must be larger than shim_tcb_t */
 #define PAL_LIBOS_TCB_SIZE  256
 
 typedef struct pal_tcb {
     struct pal_tcb * self;
     uint64_t host_tid;
     uint64_t pal_tid;
-    uint8_t libos_tcb[PAL_LIBOS_TCB_SIZE];
+    /* uint64_t for alignment */
+    uint64_t libos_tcb[PAL_LIBOS_TCB_SIZE / sizeof(uint64_t)];
     uint64_t private[];
 } PAL_TCB;
 
