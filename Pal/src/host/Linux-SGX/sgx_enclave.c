@@ -752,14 +752,17 @@ int ecall_enclave_start (const char ** arguments, const char ** environments)
     ms.ms_arguments = arguments;
     ms.ms_environments = environments;
     ms.ms_sec_info = PAL_SEC();
+    ms.ms_tid = INLINE_SYSCALL(gettid, 0);
     EDEBUG(ECALL_ENCLAVE_START, &ms);
     return sgx_ecall(ECALL_ENCLAVE_START, &ms);
 }
 
 int ecall_thread_start (void)
 {
-    EDEBUG(ECALL_THREAD_START, NULL);
-    return sgx_ecall(ECALL_THREAD_START, NULL);
+    ms_ecall_start_thread_t ms;
+    ms.ms_tid = INLINE_SYSCALL(gettid, 0);
+    EDEBUG(ECALL_THREAD_START, &ms);
+    return sgx_ecall(ECALL_THREAD_START, &ms);
 }
 
 void __abort(void) {
