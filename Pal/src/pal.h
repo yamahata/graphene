@@ -91,6 +91,7 @@ typedef union pal_handle
 typedef struct pal_tcb {
     struct pal_tcb * self;
     uint64_t host_tid;
+    uint64_t pal_tid;
     uint32_t libos_tcb[PAL_LIBOS_TCB_SIZE];
     uint32_t private[];
 } PAL_TCB;

@@ -98,6 +98,7 @@ void pal_start_thread (uint64_t host_tid)
                     GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base +
                     ENCLAVE_SIG_STACK_SIZE);
     SET_ENCLAVE_TLS(common.host_tid, host_tid);
+    SET_ENCLAVE_TLS(common.pal_tid, new_thread->thread.tid);
     callback((void *) param);
 }
 
