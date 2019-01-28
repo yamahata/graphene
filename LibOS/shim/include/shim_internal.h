@@ -464,7 +464,7 @@ static inline void __disable_preempt (shim_tcb_t * tcb)
     /* Assert if this counter overflows */
     assert((tcb->context.preempt & ~SIGNAL_DELAYED) != ~SIGNAL_DELAYED);
     tcb->context.preempt++;
-    //debug("disable preempt: %d\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    //debug("disable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
 }
 
 static inline void disable_preempt (shim_tcb_t * tcb)
@@ -481,7 +481,7 @@ static inline void __enable_preempt (shim_tcb_t * tcb)
     /* Assert if this counter underflows */
     assert(tcb->context.preempt > 0);
     tcb->context.preempt--;
-    //debug("enable preempt: %d\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    //debug("enable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
 }
 
 int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,

@@ -278,6 +278,7 @@ static inline void internal_fault(const char* errstr,
 
 static void divzero_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
+    debug("divzero_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
     if (IS_INTERNAL_TID(get_cur_tid()) || is_internal(context)) {
         internal_fault("Internal arithmetic fault", arg, context);
     } else {
@@ -292,6 +293,7 @@ static void divzero_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
 static void memfault_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
+    debug("memfault_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
     shim_tcb_t * tcb = SHIM_GET_TLS();
     assert(tcb);
 
@@ -500,6 +502,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
 static void quit_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
+    debug("quit_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
     if (!IS_INTERNAL_TID(get_cur_tid())) {
         deliver_signal(event, ALLOC_SIGINFO(SIGTERM, SI_USER, si_pid, 0), context);
     }
@@ -508,6 +511,7 @@ static void quit_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
 static void suspend_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
+    debug("suspend_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
     if (!IS_INTERNAL_TID(get_cur_tid())) {
         deliver_signal(event, ALLOC_SIGINFO(SIGINT, SI_USER, si_pid, 0), context);
     }
@@ -516,6 +520,7 @@ static void suspend_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
 static void resume_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
+    debug("resume_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
     shim_tcb_t * tcb = SHIM_GET_TLS();
 
     if (!IS_INTERNAL_TID(get_cur_tid())) {
@@ -523,6 +528,9 @@ static void resume_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
         __disable_preempt(tcb);
 
         if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1) {
+            debug("delaying signal preempt %ld delay: 0x%lx\n",
+                  (tcb->context.preempt & ~SIGNAL_DELAYED),
+                  (tcb->context.preempt & SIGNAL_DELAYED));
             tcb->context.preempt |= SIGNAL_DELAYED;
         } else {
             //PAL_EVENT * event = (PAL_EVENT *) eventp;
@@ -785,7 +793,8 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
         ((is_internal(&event->context) &&
           !is_signal_allowed(&event->context)) ||
          DkInPal(&event->context))) {
-        debug("__handle_signal: in libos or pal. just returning\n");
+        debug("__handle_signal: in libos. just returning rip 0x%08lx\n",
+              context->rip);
         return 0;
     }
 #else
@@ -793,7 +802,9 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
         ((is_internal(context) &&
           !is_signal_allowed(context)) ||
          DkInPal(context))) {
-        debug("__handle_signal: in libos or pal. just returning\n");
+        debug("__handle_signal: in libos. just returning "
+              "rip 0x%08lx +0x%08lx\n",
+              context->rip, (void *) context->rip - (void *) &__load_address);
         return 0;
     }
 #endif
