@@ -61,6 +61,7 @@ void dummy(void)
     OFFSET(SGX_SIG_STACK_HIGH, enclave_tls, sig_stack_high);
     OFFSET(SGX_FLAGS, enclave_tls, flags);
     OFFSET(SGX_PENDING_ASYNC_EVENT, enclave_tls, pending_async_event);
+    OFFSET(SGX_EVENT_NEST, enclave_tls, event_nest.counter);
     OFFSET(SGX_AEP, enclave_tls, aep);
     OFFSET(SGX_SSA, enclave_tls, ssa);
     OFFSET(SGX_GPR, enclave_tls, gpr);
