@@ -1157,6 +1157,7 @@ static struct atomic_int in_terminate = { .counter = 0, };
 int shim_terminate (void)
 {
     debug("teminating the whole process\n");
+    asm volatile("hlt");
 
     /* do last clean-up of the process */
     shim_clean();
