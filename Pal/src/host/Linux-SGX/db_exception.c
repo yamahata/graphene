@@ -64,7 +64,8 @@ typedef struct {
     PAL_CONTEXT *       context;
     sgx_context_t *     uc;
     PAL_XREGS_STATE *   xregs_state;
-    PAL_BOL             retry_event;
+    PAL_BOL             retry_event;    /* TODO: now retry_event is always
+                                         * PAL_TRUE. remove this member. */
 } PAL_EVENT;
 
 static void _DkGenericEventTrigger (PAL_IDX event_num, PAL_EVENT_HANDLER upcall,
@@ -236,7 +237,7 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
 }
 
 static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
-                                     PAL_XREGS_STATE * xregs_state )
+                                     PAL_XREGS_STATE * xregs_state)
 {
     SGX_DBG(DBG_E, "ctx %p uc %p xresg %p flags 0x%lx sigbit 0x%lx\n",
             ctx, uc, xregs_state,
@@ -445,7 +446,11 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
     ctx.oldmask = 0;
     ctx.cr2 = 0;
 
-    if (!_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state, PAL_FALSE)
+    if (event != 0
+        && !_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state, PAL_TRUE/*PAL_FALSE*/)
         && event != PAL_EVENT_RESUME)
         _DkThreadExit();
+
+    _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
+    restore_pal_context(uc, xregs_state, &ctx, PAL_TRUE);
 }
