@@ -104,6 +104,7 @@ int shim_do_fork (void)
     lock(new_thread->lock);
     struct shim_handle_map * handle_map = new_thread->handle_map;
     new_thread->handle_map = NULL;
+    new_thread->shim_tcb = NULL;
     unlock(new_thread->lock);
     if (handle_map)
         put_handle_map(handle_map);
