@@ -725,9 +725,9 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
      * acquires thread->lock. It may cause deadlock if we tries to lock
      * from host signal handler.
      */
-    if (context == NULL &&
+    if (context == NULL ||
         ((is_internal(context) && !is_signal_allowed(context)) ||
-         !DkInPal(context))) {
+         DkInPal(context))) {
 
         /* TODO queue signal without malloc() */
 
