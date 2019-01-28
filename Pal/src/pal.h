@@ -92,8 +92,8 @@ typedef struct pal_tcb {
     struct pal_tcb * self;
     uint64_t host_tid;
     uint64_t pal_tid;
-    uint32_t libos_tcb[PAL_LIBOS_TCB_SIZE];
-    uint32_t private[];
+    uint8_t libos_tcb[PAL_LIBOS_TCB_SIZE];
+    uint64_t private[];
 } PAL_TCB;
 
 static inline PAL_TCB * pal_get_tcb (void)
