@@ -837,6 +837,14 @@ int ecall_thread_start (void)
 }
 
 void __abort(void) {
+#ifdef IN_ENCLAVE
+    PAL_TCB * pal_tcb = pal_get_tcb();
+    if (pal_tcb)
+        warn("[trts %ld:urts %ld]\n", pal_tcb->pal_tid, pal_tcb->host_tid);
+#else
+    warn("[urts %ld]\n", INLINE_SYSCALL(gettid, 0));
+#endif
+
     asm volatile("pause");
     asm volatile("hlt");
     int tid = INLINE_SYSCALL(gettid, 0);
