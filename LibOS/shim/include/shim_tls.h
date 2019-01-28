@@ -93,18 +93,18 @@ typedef struct __libc_tcb
     shim_tcb_t shim_tcb;
 } __libc_tcb_t;
 
-static inline bool SHIM_TLS_CHECK_CANARY(void)
-{
-    uint64_t __canary;
-    asm ("movq %%gs:%c1,%q0" : "=r" (__canary)
-         : "i" (offsetof(__libc_tcb_t, shim_tcb.canary)));
-    return __canary == SHIM_TLS_CANARY;
-}
-
 static inline shim_tcb_t * SHIM_GET_TLS(void)
 {
     PAL_TCB * tcb = pal_get_tcb();
     return (shim_tcb_t*)tcb->libos_tcb;
+}
+
+static inline bool SHIM_TLS_CHECK_CANARY(void)
+{
+    /* optimize to use single movq %gs:<offset> */
+    shim_tcb_t * shim_tcb = SHIM_GET_TLS();
+    uint64_t __canary = shim_tcb->canary;
+    return __canary == SHIM_TLS_CANARY;
 }
 #else
 typedef struct

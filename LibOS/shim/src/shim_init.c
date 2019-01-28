@@ -212,6 +212,7 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
     tcb->tcb = tcb;
     shim_tcb_t * shim_tcb;
 #ifdef SHIM_TCB_USE_GS
+    init_tcb(&tcb->shim_tcb);
     shim_tcb = SHIM_GET_TLS();
 #else
     shim_tcb = &tcb->shim_tcb;
@@ -224,9 +225,17 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
         thread->shim_tcb = shim_tcb;
         shim_tcb->tp  = thread;
         shim_tcb->tid = thread->tid;
+#ifdef SHIM_TCB_USE_GS
+        tcb->shim_tcb.tp = thread;
+        tcb->shim_tcb.tid = thread->tid;
+#endif
     } else {
         shim_tcb->tp  = NULL;
         shim_tcb->tid = 0;
+#ifdef SHIM_TCB_USE_GS
+        tcb->shim_tcb.tp = NULL;
+        tcb->shim_tcb.tid = 0;
+#endif
     }
 
     DkSegmentRegister(PAL_SEGMENT_FS, tcb);

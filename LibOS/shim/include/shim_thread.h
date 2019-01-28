@@ -130,17 +130,17 @@ int init_thread (void);
 #ifdef SHIM_TCB_USE_GS
 static inline struct shim_thread * SHIM_THREAD_SELF(void)
 {
-    struct shim_thread * __self;
-    asm ("movq %%gs:%c1,%q0" : "=r" (__self)
-         : "i" (offsetof(__libc_tcb_t, shim_tcb.tp)));
-    return __self;
+    /* optimize to use single movq %gs:<offset> */
+    shim_tcb_t * shim_tcb = SHIM_GET_TLS();
+    return shim_tcb->tp;
 }
 
 static inline struct shim_thread * SAVE_SHIM_THREAD_SELF(struct shim_thread * __self)
 {
-     asm ("movq %q0,%%gs:%c1" : : "r" (__self),
-          "i" (offsetof(__libc_tcb_t, shim_tcb.tp)));
-     return __self;
+    /* optimize to use single movq %gs:<offset> */
+    shim_tcb_t * shim_tcb = SHIM_GET_TLS();
+    shim_tcb->tp = __self;
+    return __self;
 }
 #else
 static inline struct shim_thread * SHIM_THREAD_SELF(void)
