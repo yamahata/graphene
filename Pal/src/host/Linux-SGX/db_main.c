@@ -226,6 +226,7 @@ void pal_linux_main(const char ** arguments, const char ** environments,
                     GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, (__pal_control.first_thread = first_thread));
     SET_ENCLAVE_TLS(common.host_tid, host_tid);
+    SET_ENCLAVE_TLS(common.pal_tid, (uint64_t)first_thread->thread.tid);
 
     /* call main function */
     pal_main(pal_sec.instance_id, manifest, exec,
