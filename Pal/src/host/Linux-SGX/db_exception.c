@@ -238,9 +238,15 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
 static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
                                      PAL_XREGS_STATE * xregs_state )
 {
+    SGX_DBG(DBG_E, "ctx %p uc %p xresg %p flags 0x%lx sigbit 0x%lx\n",
+            ctx, uc, xregs_state,
+            GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event));
     union enclave_tls * tls = get_enclave_tls();
     do {
         int event_num = ffsl(GET_ENCLAVE_TLS(pending_async_event));
+        SGX_DBG(DBG_E, "event_num %d flags 0x%lx sigbit 0x%lx\n",
+                event_num,
+                GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event));
         if (event_num > 0 &&
             test_and_clear_bit(event_num, &tls->pending_async_event)) {
             ctx->err = 0;
@@ -254,6 +260,7 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
         }
     } while (test_and_clear_bit(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT,
                                 &tls->flags));
+    SGX_DBG(DBG_E, "Loop exiting\n");
 }
 
 void _DkExceptionHandlerMore (sgx_context_t * uc)
