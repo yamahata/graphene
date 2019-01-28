@@ -235,10 +235,22 @@ static inline bool is_signal_allowed(const PAL_CONTEXT * context)
              ip < (void *) &__syscallas_signal_allowed_3_end));
 }
 
-static inline bool is_sigreturn_jmp_emulation(const PAL_CONTEXT * context)
+static inline void sigreturn_jmp_emulate(PAL_CONTEXT * context)
 {
-    return context != NULL &&
-        (void *)context->IP == (void *)&__syscallas_need_emulate_jmp;
+    if (context != NULL &&
+        (void *)context->IP == (void *)&__syscallas_need_emulate_jmp) {
+        /* see syscallas.S
+         * In user space, sysret or iret (or something similar) isn't
+         * usable. So two instructions are needed.
+         * If it's interrupted between the two instructions,
+         * it need to be made atomic.
+         */
+        context->rip = *(long*)((void*)context->rsp - REDZONE_SIZE - 8);
+#if 0
+        gregset_t *gregset = &event->uc->uc_mcontext.gregs;
+        (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - REDZONE_SIZE - 8);
+#endif
+    }
 }
 
 static void print_regs(PAL_CONTEXT * ctx)
@@ -279,6 +291,7 @@ static inline void internal_fault(const char* errstr,
 static void divzero_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     debug("divzero_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
+    sigreturn_jmp_emulate(context);
     if (IS_INTERNAL_TID(get_cur_tid()) || is_internal(context)) {
         internal_fault("Internal arithmetic fault", arg, context);
     } else {
@@ -294,6 +307,7 @@ static void divzero_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 static void memfault_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     debug("memfault_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
+    sigreturn_jmp_emulate(context);
     shim_tcb_t * tcb = SHIM_GET_TLS();
     assert(tcb);
 
@@ -458,6 +472,7 @@ ret_fault:
 static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     struct shim_vma_val vma;
+    sigreturn_jmp_emulate(context);
 
     if (!IS_INTERNAL_TID(get_cur_tid()) &&
         !is_internal(context) &&
@@ -503,6 +518,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 static void quit_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     debug("quit_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
+    sigreturn_jmp_emulate(context);
     if (!IS_INTERNAL_TID(get_cur_tid())) {
         deliver_signal(event, ALLOC_SIGINFO(SIGTERM, SI_USER, si_pid, 0), context);
     }
@@ -512,6 +528,7 @@ static void quit_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 static void suspend_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     debug("suspend_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
+    sigreturn_jmp_emulate(context);
     if (!IS_INTERNAL_TID(get_cur_tid())) {
         deliver_signal(event, ALLOC_SIGINFO(SIGINT, SI_USER, si_pid, 0), context);
     }
@@ -521,6 +538,7 @@ static void suspend_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 static void resume_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 {
     debug("resume_upcall rsp: %08lx rip %08lx\n", context->rsp, context->rip);
+    sigreturn_jmp_emulate(context);
     shim_tcb_t * tcb = SHIM_GET_TLS();
 
     if (!IS_INTERNAL_TID(get_cur_tid())) {
@@ -767,17 +785,6 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
     if (!signal->context_stored)
         __store_context(tcb, NULL, signal);
 
-    if (is_sigreturn_jmp_emulation(context)) {
-        /* see syscallas.S */
-        context->rip = *(long*)((void*)context->rsp - REDZONE_SIZE - 8);
-
-#if 0
-        gregset_t *gregset = &event->uc->uc_mcontext.gregs;
-        (*gregset)[REG_RIP] = *(long*)((*gregset)[REG_RSP] - REDZONE_SIZE - 8);
-#else
-        context->rip = *((PAL_NUM*)(context->rsp - REDZONE_SIZE - 8));
-#endif
-    }
     __setup_sig_frame(tcb, sig, signal, event, context,
                       handler, restorer);
 }
