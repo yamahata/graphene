@@ -334,6 +334,7 @@ int create_async_helper (void)
  */
 struct shim_thread * terminate_async_helper (void)
 {
+    debug("async_helper_state %d\n", async_helper_state);
     if (async_helper_state != HELPER_ALIVE)
         return NULL;
 
