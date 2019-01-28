@@ -11,9 +11,9 @@
 #define SGX_CAST(type, item) ((type) (item))
 
 void pal_linux_main (const char ** arguments, const char ** environments,
-                     struct pal_sec * sec_info);
+                     struct pal_sec * sec_info, uint64_t host_tid);
 
-void pal_start_thread (void);
+void pal_start_thread (uint64_t host_tid);
 
 extern void * enclave_base, * enclave_top;
 
@@ -80,7 +80,7 @@ void handle_ecall (long ecall_index, void * ecall_args, void * exit_target,
         /* xsave size must be initizlied early */
         init_xsave_size(ms->ms_sec_info->enclave_attributes.xfrm);
         pal_linux_main(ms->ms_arguments, ms->ms_environments,
-                       ms->ms_sec_info);
+                       ms->ms_sec_info, ms->ms_tid);
     } else {
         // ENCLAVE_START already called (maybe successfully, maybe not), so
         // only valid ecall is THREAD_START.
@@ -92,8 +92,9 @@ void handle_ecall (long ecall_index, void * ecall_args, void * exit_target,
         if (!(pal_enclave_state.enclave_flags & PAL_ENCLAVE_INITIALIZED)) {
             return;
         }
-
-        pal_start_thread();
+        ms_ecall_start_thread_t * ms =
+            (ms_ecall_start_thread_t *) ecall_args;
+        pal_start_thread(ms->ms_tid);
     }
     // pal_linux_main and pal_start_thread should never return.
 }

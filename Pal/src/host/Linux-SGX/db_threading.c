@@ -53,7 +53,7 @@ struct thread_param {
 
 extern void * enclave_base;
 
-void pal_start_thread (void)
+void pal_start_thread (uint64_t host_tid)
 {
     struct pal_handle_thread *new_thread = NULL, *tmp;
 
@@ -77,6 +77,7 @@ void pal_start_thread (void)
     free(thread_param);
     new_thread->param = NULL;
     SET_ENCLAVE_TLS(thread, new_thread);
+    SET_ENCLAVE_TLS(common.host_tid, host_tid);
     SET_ENCLAVE_TLS(ready_for_exceptions, 1UL);
     callback((void *) param);
     _DkThreadExit();

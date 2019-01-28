@@ -13,4 +13,9 @@ typedef struct {
     const char ** ms_arguments;
     const char ** ms_environments;
     struct pal_sec * ms_sec_info;
+    uint64_t ms_tid;
 } ms_ecall_enclave_start_t;
+
+typedef struct {
+    uint64_t ms_tid;
+} ms_ecall_start_thread_t;
