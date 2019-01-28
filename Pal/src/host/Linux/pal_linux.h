@@ -191,12 +191,9 @@ struct event_queue {
 };
 
 DEFINE_LISTP(event_queue);
-typedef union pal_tcb_linux {
+typedef struct pal_tcb_linux {
     PAL_TCB common;
     struct {
-        union pal_tcb_linux *  self;
-        uint8_t     libos_tcb[PAL_LIBOS_TCB_SIZE];
-
         /* private to Pal/Linux */
         PAL_HANDLE  handle;
         void *      alt_stack;

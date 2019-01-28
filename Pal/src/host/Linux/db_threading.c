@@ -105,7 +105,7 @@ int _DkThreadCreate (PAL_HANDLE * handle, int (*callback) (void *),
 
     // Initialize TCB at the top of the alternative stack.
     PAL_TCB_LINUX * tcb  = child_stack + ALT_STACK_SIZE - sizeof(PAL_TCB_LINUX);
-    tcb->self      = tcb;
+    tcb->common.self = &tcb->common;
     tcb->handle    = hdl;
     tcb->alt_stack = child_stack; // Stack bottom
     tcb->callback  = callback;

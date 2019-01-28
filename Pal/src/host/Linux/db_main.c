@@ -243,7 +243,7 @@ void pal_linux_main (void * args)
 
     // Initialize TCB at the top of the alternative stack.
     PAL_TCB_LINUX * tcb = alt_stack + ALT_STACK_SIZE - sizeof(PAL_TCB_LINUX);
-    tcb->self      = tcb;
+    tcb->common.self = &tcb->common;
     tcb->handle    = first_thread;
     tcb->alt_stack = alt_stack; // Stack bottom
     tcb->callback  = NULL;
