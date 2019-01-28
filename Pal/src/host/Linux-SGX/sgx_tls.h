@@ -29,6 +29,7 @@ union enclave_tls {
          PAL_EVENT_MASK(PAL_EVENT_SUSPEND) |    \
          PAL_EVENT_MASK(PAL_EVENT_RESUME))
         uint64_t pending_async_event;
+        struct atomic_int event_nest;
         void *   aep;
         void *   ssa;
         sgx_arch_gpr_t * gpr;

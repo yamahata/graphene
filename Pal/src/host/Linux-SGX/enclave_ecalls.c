@@ -37,6 +37,8 @@ int handle_ecall (long ecall_index, void * ecall_args, void * exit_target,
     SET_ENCLAVE_TLS(exit_target, exit_target);
     SET_ENCLAVE_TLS(ustack_top,  untrusted_stack);
     SET_ENCLAVE_TLS(ustack,      untrusted_stack);
+    SET_ENCLAVE_TLS(event_nest.counter, 0);
+    mb();
 
     switch(ecall_index) {
         case ECALL_ENCLAVE_START: {
