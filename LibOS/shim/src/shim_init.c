@@ -44,6 +44,17 @@
 
 _Static_assert(sizeof(shim_tcb_t) <= PAL_LIBOS_TCB_SIZE,
                "shim_tcb_t is too big. increase PAL_LIBOS_TCB_SIZE");
+#if 0
+/* tcbhead_t is defined in glibc-2.19/nptl/sysdeps/x86_64/tls.h
+ * with glibc 2.19, sizeof(tcbhead_t) = 704
+ */
+_Static_assert(sizeof(tcbhead_t) <= PAL_LIBOS_TCB_SIZE,
+               "PAL_LIBOS_TCB_SIZE is smaller than sizeof(tcbhead)."
+               " increase PAL_LIBOS_TCB_SIZE");
+
+_Static_assert(sizeof(struct pthread) <= PAL_LIBOS_TCB_SIZE,
+               "increase PAL_LIBOS_TCB_SIZE");
+#endif
 
 unsigned long allocsize;
 unsigned long allocshift;
@@ -212,7 +223,6 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
     tcb->tcb = tcb;
     shim_tcb_t * shim_tcb;
 #ifdef SHIM_TCB_USE_GS
-    init_tcb(&tcb->shim_tcb);
     shim_tcb = SHIM_GET_TLS();
 #else
     shim_tcb = &tcb->shim_tcb;
@@ -225,17 +235,9 @@ void allocate_tls (__libc_tcb_t * tcb, bool user, struct shim_thread * thread)
         thread->shim_tcb = shim_tcb;
         shim_tcb->tp  = thread;
         shim_tcb->tid = thread->tid;
-#ifdef SHIM_TCB_USE_GS
-        tcb->shim_tcb.tp = thread;
-        tcb->shim_tcb.tid = thread->tid;
-#endif
     } else {
         shim_tcb->tp  = NULL;
         shim_tcb->tid = 0;
-#ifdef SHIM_TCB_USE_GS
-        tcb->shim_tcb.tp = NULL;
-        tcb->shim_tcb.tid = 0;
-#endif
     }
 
     DkSegmentRegister(PAL_SEGMENT_FS, tcb);
@@ -1157,7 +1159,6 @@ static struct atomic_int in_terminate = { .counter = 0, };
 int shim_terminate (void)
 {
     debug("teminating the whole process\n");
-    asm volatile("hlt");
 
     /* do last clean-up of the process */
     shim_clean();
