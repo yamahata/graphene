@@ -229,7 +229,7 @@ extern struct pal_enclave_config {
 
 static inline PAL_IDX current_tid(void)
 {
-    union enclave_tls * tls = get_enclave_tls();
+    struct enclave_tls * tls = get_enclave_tls();
     if (tls && tls->thread)
         return tls->thread->thread.tid;
     return 0;

@@ -4,18 +4,14 @@
 #ifndef __SGX_TLS_H__
 #define __SGX_TLS_H__
 
-union enclave_tls {
+struct enclave_tls {
     PAL_TCB common;
     struct {
-        union enclave_tls * self;
-        uint8_t libos_tcb[PAL_LIBOS_TCB_SIZE];
-
         /* privateto Pal/Linux-SGX */
         uint64_t enclave_size;
         uint64_t tls_offset;
         uint64_t tcs_offset;
         uint64_t initial_stack_offset;
-        uint64_t sig_stack_offset;
         uint64_t sig_stack_low;
         uint64_t sig_stack_high;
 #define SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT   (0)
@@ -49,21 +45,28 @@ extern uint64_t dummy_debug_variable;
 # ifdef IN_ENCLAVE
 #  define GET_ENCLAVE_TLS(member)                                   \
     ({                                                              \
-        union enclave_tls * tmp;                                    \
+        struct enclave_tls * tmp;                                   \
         uint64_t val;                                               \
+        _Static_assert(sizeof(tmp->member) == 8,                    \
+                       "sgx_tls member should have 8bytes type");   \
         asm ("movq %%gs:%c1, %q0": "=r" (val)                       \
-             : "i" (offsetof(union enclave_tls, member)));          \
+             : "i" (offsetof(struct enclave_tls, member)));         \
         (typeof(tmp->member)) val;                                  \
     })
 #  define SET_ENCLAVE_TLS(member, value)                            \
     do {                                                            \
+        struct enclave_tls * tmp;                                   \
+        _Static_assert(sizeof(tmp->member) == 8,                    \
+                       "sgx_tls member should have 8bytes type");   \
+        _Static_assert(sizeof(value) == 8,                          \
+                       "only 8 bytes type can be set to sgx_tls");  \
         asm ("movq %q0, %%gs:%c1":: "r" (value),                    \
-             "i" (offsetof(union enclave_tls, member)));            \
+             "i" (offsetof(struct enclave_tls, member)));           \
     } while (0)
 
-static inline union enclave_tls * get_enclave_tls(void)
+static inline struct enclave_tls * get_enclave_tls(void)
 {
-    return (union enclave_tls*)pal_get_tcb();
+    return (struct enclave_tls*)pal_get_tcb();
 }
 # endif
 

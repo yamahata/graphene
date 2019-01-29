@@ -53,24 +53,24 @@ void dummy(void)
            sizeof(sgx_context_t) % PAL_XSTATE_ALIGN);
 
     /* struct enclave_tls */
-    OFFSET_U(SGX_SELF, enclave_tls, self);
-    OFFSET_U(SGX_ENCLAVE_SIZE, enclave_tls, enclave_size);
-    OFFSET_U(SGX_TCS_OFFSET, enclave_tls, tcs_offset);
-    OFFSET_U(SGX_INITIAL_STACK_OFFSET, enclave_tls, initial_stack_offset);
-    OFFSET_U(SGX_SIG_STACK_LOW, enclave_tls, sig_stack_low);
-    OFFSET_U(SGX_SIG_STACK_HIGH, enclave_tls, sig_stack_high);
-    OFFSET_U(SGX_FLAGS, enclave_tls, flags);
-    OFFSET_U(SGX_PENDING_ASYNC_EVENT, enclave_tls, pending_async_event);
-    OFFSET_U(SGX_EVENT_NEST, enclave_tls, event_nest.counter);
-    OFFSET_U(SGX_AEP, enclave_tls, aep);
-    OFFSET_U(SGX_SSA, enclave_tls, ssa);
-    OFFSET_U(SGX_GPR, enclave_tls, gpr);
-    OFFSET_U(SGX_EXIT_TARGET, enclave_tls, exit_target);
-    OFFSET_U(SGX_FSBASE, enclave_tls, fsbase);
-    OFFSET_U(SGX_STACK, enclave_tls, stack);
-    OFFSET_U(SGX_USTACK_TOP, enclave_tls, ustack_top);
-    OFFSET_U(SGX_USTACK, enclave_tls, ustack);
-    OFFSET_U(SGX_THREAD, enclave_tls, thread);
+    OFFSET(SGX_SELF, enclave_tls, common.self);
+    OFFSET(SGX_ENCLAVE_SIZE, enclave_tls, enclave_size);
+    OFFSET(SGX_TCS_OFFSET, enclave_tls, tcs_offset);
+    OFFSET(SGX_INITIAL_STACK_OFFSET, enclave_tls, initial_stack_offset);
+    OFFSET(SGX_SIG_STACK_LOW, enclave_tls, sig_stack_low);
+    OFFSET(SGX_SIG_STACK_HIGH, enclave_tls, sig_stack_high);
+    OFFSET(SGX_FLAGS, enclave_tls, flags);
+    OFFSET(SGX_PENDING_ASYNC_EVENT, enclave_tls, pending_async_event);
+    OFFSET(SGX_EVENT_NEST, enclave_tls, event_nest.counter);
+    OFFSET(SGX_AEP, enclave_tls, aep);
+    OFFSET(SGX_SSA, enclave_tls, ssa);
+    OFFSET(SGX_GPR, enclave_tls, gpr);
+    OFFSET(SGX_EXIT_TARGET, enclave_tls, exit_target);
+    OFFSET(SGX_FSBASE, enclave_tls, fsbase);
+    OFFSET(SGX_STACK, enclave_tls, stack);
+    OFFSET(SGX_USTACK_TOP, enclave_tls, ustack_top);
+    OFFSET(SGX_USTACK, enclave_tls, ustack);
+    OFFSET(SGX_THREAD, enclave_tls, thread);
 
     DEFINE(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT,
            SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT);

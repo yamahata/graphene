@@ -217,16 +217,11 @@ void pal_linux_main(const char ** arguments, const char ** environments,
     first_thread->thread.tid = pal_tid_new();
     first_thread->thread.tcs =
         enclave_base + GET_ENCLAVE_TLS(tcs_offset);
-    SET_ENCLAVE_TLS(self,
+    SET_ENCLAVE_TLS(common.self,
                     GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, (__pal_control.first_thread = first_thread));
-    SET_ENCLAVE_TLS(sig_stack_low,
-                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base);
-    SET_ENCLAVE_TLS(sig_stack_high,
-                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base +
-                    ENCLAVE_SIG_STACK_SIZE);
     SET_ENCLAVE_TLS(common.host_tid, host_tid);
-    SET_ENCLAVE_TLS(common.pal_tid, first_thread->thread.tid);
+    SET_ENCLAVE_TLS(common.pal_tid, (uint64_t)first_thread->thread.tid);
 
     /* call main function */
     pal_main(pal_sec.instance_id, manifest, exec,

@@ -418,15 +418,21 @@ int initialize_enclave (struct pal_enclave * enclave)
                                            MAP_ANON|MAP_PRIVATE, -1, 0);
 
             for (int t = 0 ; t < enclave->thread_num ; t++) {
-                union enclave_tls * gs = data + pagesize * t;
-                gs->self = (union enclave_tls *)(tls_area->addr + pagesize * t +
-                                                 enclave_secs.baseaddr);
+                struct enclave_tls * gs = data + pagesize * t;
+                memset(gs, 0, pagesize);
+                assert(sizeof(*gs) <= pagesize);
+                gs->common.self = (PAL_TCB *)(
+                    tls_area->addr + pagesize * t + enclave_secs.baseaddr);
                 gs->enclave_size = enclave->size;
                 gs->tls_offset = tls_area->addr + pagesize * t;
                 gs->tcs_offset = tcs_area->addr + pagesize * t;
                 gs->initial_stack_offset =
                     stack_areas[t].addr + ENCLAVE_STACK_SIZE;
-                gs->sig_stack_offset = sig_stack_areas[t].addr;
+                gs->sig_stack_low =
+                    sig_stack_areas[t].addr + enclave_secs.baseaddr;
+                gs->sig_stack_high =
+                    sig_stack_areas[t].addr + ENCLAVE_SIG_STACK_SIZE +
+                    enclave_secs.baseaddr;
                 gs->ssa = (void *) ssa_area->addr +
                     enclave->ssaframesize * SSAFRAMENUM * t +
                     enclave_secs.baseaddr;

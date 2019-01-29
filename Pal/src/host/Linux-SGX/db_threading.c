@@ -89,16 +89,11 @@ void pal_start_thread (uint64_t host_tid)
     const void * param = thread_param->param;
     free(thread_param);
     new_thread->thread.param = NULL;
-    SET_ENCLAVE_TLS(self,
+    SET_ENCLAVE_TLS(common.self,
                     GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, new_thread);
-    SET_ENCLAVE_TLS(sig_stack_low,
-                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base);
-    SET_ENCLAVE_TLS(sig_stack_high,
-                    GET_ENCLAVE_TLS(sig_stack_offset) + enclave_base +
-                    ENCLAVE_SIG_STACK_SIZE);
     SET_ENCLAVE_TLS(common.host_tid, host_tid);
-    SET_ENCLAVE_TLS(common.pal_tid, new_thread->thread.tid);
+    SET_ENCLAVE_TLS(common.pal_tid, (uint64_t)new_thread->thread.tid);
     callback((void *) param);
 }
 
