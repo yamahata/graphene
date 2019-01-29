@@ -169,10 +169,10 @@ static int sgx_ocall_fionread(void * pms)
 {
     ms_ocall_fionread_t * ms = (ms_ocall_fionread_t *) pms;
     int ret, val;
-    ODEBUG(OCALL_FIONREAD, ms);
+    //ODEBUG(OCALL_FIONREAD, ms);
     ret = INLINE_SYSCALL(ioctl, 3, ms->ms_fd, FIONREAD, &val);
-    ODEBUG_RV(OCALL_FIONREAD, ret);
-    return linux_ret_to_pal(ret);
+    //ODEBUG_RV(OCALL_FIONREAD, ret);
+    return IS_ERR(ret) ? unix_to_pal_error(ERRNO(ret)) : val;
 }
 
 static int sgx_ocall_fsetnonblock(void * pms)
