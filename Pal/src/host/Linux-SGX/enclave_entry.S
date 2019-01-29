@@ -326,9 +326,11 @@ sgx_ocall:
 	## previous rip: pushed by callq
 	##
 
+#if 0
 	// defer async signal after retuning ocall.
 	// See _DkHandleExternalEvent()
 	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
+#endif
 
 	pushq %rbp
 	movq %rsp, %rbp
@@ -415,8 +417,13 @@ sgx_ocall:
 	je .Lno_fsbase
 	WRFSBASE_RBX
 .Lno_fsbase:
-	// cmpq $0, %rsi
-	//je .Lno_external_event
+#if 1
+	/* TODO: mask event on entry of sgx_ocall, and reap it here
+	 * see sgx_ocall above
+	 */
+	cmpq $0, %rsi
+	je .Lno_external_event
+#endif
 
 	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
 	movq %rax, %rsi	## %rsi = sgx_context_t * uc
@@ -428,8 +435,7 @@ sgx_ocall:
 
 
 	/* we shouldn't come here. Just in case to trigger error exception */
-	hlt
-//.Lno_external_event:
+.Lno_external_event:
 	# restore the stack
 	movq %gs:SGX_STACK, %rsp
 
