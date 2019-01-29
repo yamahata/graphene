@@ -379,7 +379,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
                                     32 /* at least 2 instructions */));
         printf("pausing for debug\n");
         while (true)
-            asm volatile("pause");
+            asm volatile("hlt");
 #endif
         _DkThreadExit();
     }
