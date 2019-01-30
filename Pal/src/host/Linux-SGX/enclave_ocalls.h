@@ -5,6 +5,9 @@
  * This is for enclave to make ocalls to untrusted runtime.
  */
 
+#ifndef ENCLAVE_OCALLS_H
+#define ENCLAVE_OCALLS_H
+
 #include "pal_linux.h"
 
 #include <asm/stat.h>
@@ -111,3 +114,35 @@ int ocall_sched_setaffinity(
     unsigned long pid, size_t cpusetsize, const unsigned long * mask);
 
 int ocall_rdtsc(unsigned long * low, unsigned long * high);
+
+
+/* callee saved registers */
+struct ocall_marker_buf {
+    uint64_t rbx;
+    uint64_t rbp;
+    uint64_t r12;
+    uint64_t r13;
+    uint64_t r14;
+    uint64_t r15;
+    uint64_t rsp;
+    uint64_t rip;
+};
+
+struct ocall_marker_ret {
+    int64_t ret;                            /* %rax */
+    struct ocall_marker_buf* prev_marker;   /* %rdx */
+};
+
+struct ocall_marker_ret ocall_marker_save(struct ocall_marker_buf * marker);
+static inline void ocall_marker_clean(struct ocall_marker_buf * current)
+{
+    struct ocall_marker_buf * prev = NULL;
+    __asm__ volatile (
+        "xchgq %q0, %%gs:%c1"
+        : "+r"(prev)
+        : "i"(offsetof(struct ocall_marker_ret, prev_marker))
+        : "memory");
+    assert(prev == current);
+}
+
+#endif /* ENCLAVE_OCALLS_H */
