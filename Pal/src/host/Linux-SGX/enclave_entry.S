@@ -152,13 +152,7 @@ enclave_entry:
 #endif
 
 .Lhandle_exception_raise:
-#if 0
-	movq %gs:SGX_SELF, %rax
-	addq $SGX_FLAGS, %rax
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%rax)
-#else
 	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
-#endif
 	jnc .Lhandle_exception__
 
 	cmpq $PAL_EVENT_QUIT, %rdi
@@ -178,13 +172,7 @@ enclave_entry:
 	jmp .Lhandle_exception_out
 
 .Lhandle_exception:
-#if 0
-	movq %gs:SGX_SELF, %rax
-	addq $SGX_FLAGS, %rax
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%rax)
-#else
 	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
-#endif
 .Lhandle_exception__:
 	# %rbx SGX_GPR base address from TLS
 	movq SGX_GPR_RSP(%rbx), %rsi
@@ -418,7 +406,7 @@ sgx_ocall:
 	WRFSBASE_RBX
 .Lno_fsbase:
 	movq %rax, %rbx		# save stack pointer to callee saved %rbx
-#if 1
+#if 0
 	/* TODO: mask event on entry of sgx_ocall, and reap it here
 	 * see sgx_ocall above
 	 */
@@ -450,7 +438,6 @@ sgx_ocall:
 .Lcall_dk_handle_external_event:
 	callq _DkHandleExternalEvent
 
-	/* we shouldn't come here. Just in case to trigger error exception */
 .Lno_external_event:
 	# restore the stack
 	movq %rbx, %rsp
@@ -545,13 +532,7 @@ __restore_sgx_context_retry:
 
 	popq %r14
 
-#if 0
-	movq %gs:SGX_SELF, %r15
-	addq $SGX_FLAGS, %r15
-	lock btrq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%r15)
-#else
 	SGX_TLS_FLAGS_CLEAR_EXECUTING_BIT %r15
-#endif
 	/* There is a window from here to movq below where stack
 	 * can grow. */
 	lock btrq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%r15)
