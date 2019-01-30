@@ -366,7 +366,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
          event_num != PAL_EVENT_RESUME)) {
         printf("*** An unexpected AEX vector occurred inside PAL. "
                "Exiting the thread. *** \n"
-               "(vector = 0x%x, type = 0x%x valid = %d, RIP = +%08lx)\n"
+               "(vector = 0x%x, type = 0x%x valid = %d, RIP = +0x%08lx)\n"
                "tid: %d rip: 0x%08lx\n"
                "rax: 0x%08lx rcx: 0x%08lx rdx: 0x%08lx rbx: 0x%08lx\n"
                "rsp: 0x%08lx rbp: 0x%08lx rsi: 0x%08lx rdi: 0x%08lx\n"
@@ -469,6 +469,8 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                              PAL_XREGS_STATE * xregs_state)
 {
     struct atomic_int * event_nest = get_event_nest();
+    bool retry_event = (atomic_read(event_nest) == 0);
+    atomic_inc(event_nest);
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
 
@@ -487,17 +489,11 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                 "xregs_state %p event_nest %ld\n",
                 event, uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip, xregs_state,
                 atomic_read(event_nest));
-        atomic_inc(event_nest);
-        if (!_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state, false/*true*/)
+        if (!_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state, retry_event)
             && event != PAL_EVENT_RESUME)
             _DkThreadExit();
         atomic_dec(event_nest);
     }
 
-#if 1
-    //bool retry_event = (atomic_read(event_nest) == 0);
-    atomic_inc(event_nest);
-    //restore_pal_context(uc, xregs_state, &ctx, retry_event);
-    restore_pal_context(uc, xregs_state, &ctx, false);
-#endif
+    restore_pal_context(uc, xregs_state, &ctx, retry_event);
 }
