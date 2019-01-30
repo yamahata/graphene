@@ -417,6 +417,7 @@ sgx_ocall:
 	je .Lno_fsbase
 	WRFSBASE_RBX
 .Lno_fsbase:
+	movq %rax, %rbx		# save stack pointer to callee saved %rbx
 #if 1
 	/* TODO: mask event on entry of sgx_ocall, and reap it here
 	 * see sgx_ocall above
@@ -433,17 +434,16 @@ sgx_ocall:
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
 	callq _DkHandleExternalEvent
 
-
 	/* we shouldn't come here. Just in case to trigger error exception */
 .Lno_external_event:
 	# restore the stack
-	movq %gs:SGX_STACK, %rsp
+	movq %rbx, %rsp
 
 	movq %rsp, %rdi
 	addq $SGX_CONTEXT_SIZE, %rdi
 	callq restore_xregs
 
-	movq %gs:SGX_STACK, %rdi
+	movq %rbx, %rdi
 	jmp __restore_sgx_context_retry
 
 	# void __restore_sgx_context (sgx_context_t *uc)
