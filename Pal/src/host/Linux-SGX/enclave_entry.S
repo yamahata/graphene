@@ -431,7 +431,23 @@ sgx_ocall:
 	movq %rax, %rdx
 	addq $SGX_CONTEXT_SIZE, %rdx ## %rdx = PAL_XREGS_STATE * xregs_state
 
+	## use signal stack. check if we're already on signal stack
+	movq %gs:SGX_SIG_STACK_LOW, %rax
+	cmpq %rax, %rbx
+	jle .Lout_of_signal_stack_external_event
+	movq %gs:SGX_SIG_STACK_HIGH, %rax
+	cmpq %rax, %rbx
+	jge .Lout_of_signal_stack_external_event
+
+	##  we're on signal stack. allocate our own stack on top of it
+	movq %rbx, %rsp
+	subq $REDZONE_SIZE, %rsp
+	jmp .Lcall_dk_handle_external_event
+
+.Lout_of_signal_stack_external_event:
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
+
+.Lcall_dk_handle_external_event:
 	callq _DkHandleExternalEvent
 
 	/* we shouldn't come here. Just in case to trigger error exception */
