@@ -124,29 +124,22 @@ PAL_BOL DkInPal (const PAL_CONTEXT * context)
 
 static void restore_sgx_context (sgx_context_t * uc,
                                  PAL_XREGS_STATE * xregs_state,
-                                 bool retry_event,
-                                 bool debug_message)
+                                 bool retry_event)
 {
     atomic_dec(get_event_nest());
-    if (debug_message) {
-        SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p xregs_state: %p retry: %d uc+1: %p\n",
-                uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip,
-                xregs_state, retry_event, uc + 1);
-    }
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
 
     restore_xregs(xregs_state);
-    if (retry_event) {
+    if (retry_event)
         __restore_sgx_context_retry(uc);
-    } else
+    else
         __restore_sgx_context(uc);
 }
 
 static void restore_pal_context (
     sgx_context_t * uc, PAL_XREGS_STATE * xregs_state,
-    PAL_CONTEXT * ctx, bool retry_event,
-    bool debug_message)
+    PAL_CONTEXT * ctx, bool retry_event)
 {
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
@@ -177,7 +170,7 @@ static void restore_pal_context (
                ctx->fpregs->fpstate.sw_reserved.xstate_size);
     /* TODO sanity check of user supplied ctx->fpregs */
 
-    restore_sgx_context(uc, xregs_state, retry_event, debug_message);
+    restore_sgx_context(uc, xregs_state, retry_event);
 }
 
 static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc,
@@ -304,7 +297,7 @@ void _DkExceptionHandlerMore (sgx_context_t * uc)
     PAL_CONTEXT ctx;
     save_pal_context(&ctx, uc, xregs_state);
     _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
-    restore_pal_context(uc, xregs_state, &ctx, true, true);
+    restore_pal_context(uc, xregs_state, &ctx, true);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
@@ -345,7 +338,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             break;
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
-                restore_sgx_context(uc, xregs_state, true, true);
+                restore_sgx_context(uc, xregs_state, true);
                 /* NOTREACHED */
             }
             event_num = PAL_EVENT_ILLEGAL;
@@ -362,7 +355,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         case SGX_EXCEPTION_VECTOR_DB:
         case SGX_EXCEPTION_VECTOR_BP:
         default:
-            restore_sgx_context(uc, xregs_state, true, true);
+            restore_sgx_context(uc, xregs_state, true);
             return;
         }
     }
@@ -431,7 +424,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     _DkGenericSignalHandle(event_num, arg, &ctx, uc, xregs_state, true);
 
     _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
-    restore_pal_context(uc, xregs_state, &ctx, true, true);
+    restore_pal_context(uc, xregs_state, &ctx, true);
 }
 
 void _DkRaiseFailure (int error)
@@ -469,7 +462,7 @@ void _DkExceptionReturn (void * event)
     assert((((uintptr_t)e->xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (e->uc + 1) == e->xregs_state);
 
-    restore_pal_context(e->uc, e->xregs_state, ctx, e->retry_event, true);
+    restore_pal_context(e->uc, e->xregs_state, ctx, e->retry_event);
 }
 
 void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
@@ -501,10 +494,10 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
         atomic_dec(event_nest);
     }
 
-#if 0
+#if 1
     //bool retry_event = (atomic_read(event_nest) == 0);
     atomic_inc(event_nest);
-    //restore_pal_context(uc, xregs_state, &ctx, retry_event, false);
-    restore_pal_context(uc, xregs_state, &ctx, false, false);
+    //restore_pal_context(uc, xregs_state, &ctx, retry_event);
+    restore_pal_context(uc, xregs_state, &ctx, false);
 #endif
 }
