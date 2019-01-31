@@ -310,12 +310,6 @@ sgx_ocall:
 	## previous rip: pushed by callq
 	##
 
-#if 0
-	// defer async signal after retuning ocall.
-	// See _DkHandleExternalEvent()
-	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
-#endif
-
 	pushq %rbp
 	movq %rsp, %rbp
 
@@ -433,7 +427,9 @@ sgx_ocall:
 
 .Lcall_dk_handle_external_event:
 	callq _DkHandleExternalEvent
+	## NOTREACHED
 
+#if 0
 .Lno_external_event:
 	# restore the stack
 	movq %rbx, %rsp
@@ -444,6 +440,7 @@ sgx_ocall:
 
 	movq %rbx, %rdi
 	jmp __restore_sgx_context_retry
+#endif
 
 	# void __restore_sgx_context (sgx_context_t *uc)
 	# __attribute__((noreturn))
