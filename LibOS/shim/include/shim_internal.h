@@ -227,6 +227,7 @@ static inline int64_t get_cur_preempt (void) {
     SHIM_ARG_TYPE __shim_##name (args) {                    \
         SHIM_ARG_TYPE ret = 0;                              \
         int64_t preempt = get_cur_preempt();                \
+        assert((preempt & SIGNAL_DELAYED) == 0);            \
         /* handle_signal(true); */                          \
         /* check_stack_hook(); */                           \
         BEGIN_SYSCALL_PROFILE();
@@ -485,6 +486,31 @@ static inline void __enable_preempt (shim_tcb_t * tcb)
     //debug("enable preempt: %ld\n", preempt & ~SIGNAL_DELAYED);
 }
 
+int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
+                     PAL_PTR event, PAL_CONTEXT * context);
+
+static inline void enable_preempt (shim_tcb_t * tcb)
+{
+    if (!tcb && !(tcb = SHIM_GET_TLS()))
+        return;
+
+    int64_t preempt = atomic_read(&tcb->context.preempt);
+    if (!(preempt & ~SIGNAL_DELAYED)) {
+        assert((preempt & SIGNAL_DELAYED) == 0);
+        return;
+    }
+
+    if ((preempt & ~SIGNAL_DELAYED) == 1) {
+        do {
+            __handle_signal(tcb, 0, NULL, NULL, NULL);
+            /* if SIGNAL_DELAYED is set at the same time, retry. */
+        } while (atomic_cmpxchg(&tcb->context.preempt, 1, 0) != 1);
+        return;
+    }
+
+    __enable_preempt(tcb);
+}
+
 static inline void __preempt_set_delayed(shim_tcb_t * tcb)
 {
     struct atomic_int * preempt = &tcb->context.preempt;
@@ -507,24 +533,6 @@ static inline void __preempt_clear_delayed(shim_tcb_t * tcb)
     } while (atomic_cmpxchg(preempt, old, new) != old);
 }
 
-
-int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
-                     PAL_PTR event, PAL_CONTEXT * context);
-
-static inline void enable_preempt (shim_tcb_t * tcb)
-{
-    if (!tcb && !(tcb = SHIM_GET_TLS()))
-        return;
-
-    int64_t preempt = atomic_read(&tcb->context.preempt);
-    if (!(preempt & ~SIGNAL_DELAYED))
-        return;
-
-    if ((preempt & ~SIGNAL_DELAYED) == 1)
-        __handle_signal(tcb, 0, NULL, NULL, NULL);
-
-    __enable_preempt(tcb);
-}
 
 #define DEBUG_LOCK      0
 

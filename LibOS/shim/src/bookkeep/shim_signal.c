@@ -791,8 +791,12 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
 int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
                      PAL_PTR event, PAL_CONTEXT * context)
 {
-    if (/*uc == NULL ||*/ event == NULL || context == NULL)
+    if (uc == NULL || event == NULL || context == NULL) {
+        /* TODO: implement here. Deliver signal to user program */
+        debug("FIXME __handle_signal flags 0x%lx\n", tcb->flags);
+        __preempt_clear_delayed(tcb);
         return 0;
+    }
 
 #if 0
     if (event != NULL &&
@@ -823,9 +827,11 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
 
     sig = begin_sig;
 
+    __preempt_clear_delayed(tcb);
     while (atomic_read(&thread->has_signal)) {
         struct shim_signal * signal = NULL;
 
+        __preempt_clear_delayed(tcb);
         for ( ; sig < end_sig ; sig++)
             if (!__sigismember(&thread->signal_mask, sig) &&
                 (signal = fetch_signal_log(tcb, thread, sig)))
@@ -840,7 +846,6 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
         __handle_one_signal(tcb, sig, signal, event, context);
         free(signal);
         DkThreadYieldExecution();
-        __preempt_clear_delayed(tcb);
         if (/*uc != NULL &&*/ event != NULL && context != NULL)
             return 1;
     }
