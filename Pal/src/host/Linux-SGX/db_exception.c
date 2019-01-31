@@ -218,6 +218,24 @@ static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc,
         PAL_FP_XSTATE_MAGIC2;
 }
 
+static bool ocall_marker_check(sgx_context_t * uc,
+                               struct ocall_marker_buf * marker)
+{
+    if (marker == NULL)
+        return false;
+
+    uc->rax = -PAL_ERROR_INTERRUPTED;
+    uc->rbx = marker->rbx;
+    uc->rbp = marker->rbp;
+    uc->r12 = marker->r12;
+    uc->r13 = marker->r13;
+    uc->r14 = marker->r14;
+    uc->r15 = marker->r15;
+    uc->rsp = marker->rsp;
+    uc->rip = marker->rip;
+    return true;
+}
+
 static bool handle_ud(sgx_context_t * uc)
 {
     unsigned char * instr = (unsigned char *) uc->rip;
@@ -266,6 +284,18 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
         int event_num = ffsl(GET_ENCLAVE_TLS(pending_async_event));
         if (event_num > 0 &&
             test_and_clear_bit(event_num, &tls->pending_async_event)) {
+            struct ocall_marker_buf * marker = ocall_marker_clear();
+            if (ocall_marker_check(uc, marker)) {
+                ctx->rax = uc->rax;
+                ctx->rbx = uc->rbx;
+                ctx->rbp = uc->rbp;
+                ctx->r12 = uc->r12;
+                ctx->r13 = uc->r13;
+                ctx->r14 = uc->r14;
+                ctx->r15 = uc->r15;
+                ctx->rip = uc->rip;
+                ctx->rsp = uc->rsp;
+            }
             SGX_DBG(DBG_E, "event_num %d flags 0x%lx sigbit 0x%lx\n",
                     event_num,
                     GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event));
@@ -394,6 +424,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 
     SGX_DBG(DBG_E, "rip 0x%08lx\n", uc->rip);
 
+    struct ocall_marker_buf * marker = ocall_marker_clear();
     PAL_CONTEXT ctx;
     save_pal_context(&ctx, uc, xregs_state);
 
@@ -412,12 +443,15 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     PAL_NUM arg = 0;
     switch (event_num) {
     case PAL_EVENT_ILLEGAL:
+        assert(marker == NULL);
         arg = uc->rip;
         break;
     case PAL_EVENT_MEMFAULT:
+        assert(marker == NULL);
         /* TODO */
         break;
     default:
+        ocall_marker_check(uc, marker);
         /* nothing */
         break;
     }
@@ -484,6 +518,8 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
     ctx.cr2 = 0;
 
     if (event != 0) {
+        struct ocall_marker_buf * marker = ocall_marker_clear();
+        ocall_marker_check(uc, marker);
         SGX_DBG(DBG_E,
                 "event %ld uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p "
                 "xregs_state %p event_nest %ld\n",
@@ -495,5 +531,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
         atomic_dec(event_nest);
     }
 
+    /* TODO: if ocall was success, defer async interrupt until
+     * ocall_marker_clear() */
     restore_pal_context(uc, xregs_state, &ctx, retry_event);
 }
