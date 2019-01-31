@@ -15,20 +15,20 @@
 
 #include <asm/errno.h>
 
-#define __OCALLOC(val, type, len) do {  \
-    void * _tmp = sgx_ocalloc(len);     \
-    if (_tmp == NULL) {                 \
-        OCALL_EXIT();                   \
-        return -PAL_ERROR_DENIED;  /* TODO: remove this control-flow obfuscation */  \
-    }                                   \
-    (val) = (type) _tmp;                \
-} while (0)
-
 #define OCALLOC(val, type, len) do {    \
     void * _tmp = sgx_ocalloc(len);     \
     if (_tmp == NULL) {                 \
         OCALL_EXIT();                   \
         OCALL_MARKER_CLEAR();           \
+        return -PAL_ERROR_DENIED;  /* TODO: remove this control-flow obfuscation */  \
+    }                                   \
+    (val) = (type) _tmp;                \
+} while (0)
+
+#define __OCALLOC(val, type, len) do {  \
+    void * _tmp = sgx_ocalloc(len);     \
+    if (_tmp == NULL) {                 \
+        OCALL_EXIT();                   \
         return -PAL_ERROR_DENIED;  /* TODO: remove this control-flow obfuscation */  \
     }                                   \
     (val) = (type) _tmp;                \
@@ -76,24 +76,45 @@
     struct ocall_marker_buf __marker;           \
     struct ocall_marker_ret __ret;              \
     __ret = ocall_marker_save(&__marker);       \
-    /* assert(__ret.prev_marker == NULL);*/     \
+    assert(__ret.prev == NULL);                 \
     if (__ret.ret < 0)                          \
         goto __interrupted;
 
 #define OCALL_MARKER_CLEAR()                    \
     do {                                        \
-        /* struct ocall_marker_buf * __prev = */    \
+        struct ocall_marker_buf * __prev =      \
             ocall_marker_clear();               \
-        /* assert(&__marker == __prev);*/       \
+        assert(&__marker == __prev);            \
     } while (0)
 
 #define OCALL_MARKER_RETURN()                   \
     do {                                        \
     __interrupted:                              \
         OCALL_EXIT();                           \
-        /* struct ocall_marker_buf * __prev = */    \
+        struct ocall_marker_buf * __prev =      \
             ocall_marker_clear();               \
-        /* assert(&__marker == __prev); */      \
+        assert(&__marker == __prev);            \
+        return __ret.ret;                       \
+    } while (0)
+
+/* assert doesn't apply to ocall_print_string() to avoid assert loop */
+#define __OCALL_MARKER_SETUP()                  \
+    struct ocall_marker_buf __marker;           \
+    struct ocall_marker_ret __ret;              \
+    __ret = ocall_marker_save(&__marker);       \
+    if (__ret.ret < 0)                          \
+        goto __interrupted;
+
+#define __OCALL_MARKER_CLEAR()                  \
+    do {                                        \
+        ocall_marker_clear();                   \
+    } while (0)
+
+#define __OCALL_MARKER_RETURN()                 \
+    do {                                        \
+    __interrupted:                              \
+        OCALL_EXIT();                           \
+        ocall_marker_clear();                   \
         return __ret.ret;                       \
     } while (0)
 
@@ -101,11 +122,11 @@ int ocall_exit(int exitcode)
 {
     /* This ocall shouldn't return. If interrupted, try again */
     while (true) {
-        OCALL_MARKER_SETUP();
+        __OCALL_MARKER_SETUP();
         int64_t code = exitcode;
         SGX_OCALL(OCALL_EXIT, (void *) code);
     __interrupted:
-        OCALL_MARKER_CLEAR();
+        __OCALL_MARKER_CLEAR();
     }
     /* never reach here */
     return 0;
@@ -113,14 +134,14 @@ int ocall_exit(int exitcode)
 
 int ocall_print_string (const char * str, unsigned int length)
 {
-    OCALL_MARKER_SETUP();
+    __OCALL_MARKER_SETUP();
     int retval = 0;
     ms_ocall_print_string_t * ms;
     OCALLOC(ms, ms_ocall_print_string_t *, sizeof(*ms));
 
     if (!str || length <= 0) {
         OCALL_EXIT();
-        OCALL_MARKER_CLEAR();
+        __OCALL_MARKER_CLEAR();
         return -PAL_ERROR_DENIED;
     }
 
@@ -129,9 +150,9 @@ int ocall_print_string (const char * str, unsigned int length)
 
     retval = SGX_OCALL(OCALL_PRINT_STRING, ms);
     OCALL_EXIT();
-    OCALL_MARKER_CLEAR();
+    __OCALL_MARKER_CLEAR();
     return retval;
-    OCALL_MARKER_RETURN();
+    __OCALL_MARKER_RETURN();
 }
 
 static int __ocall_alloc_untrusted (uint64_t size, void ** mem)
@@ -899,7 +920,6 @@ int ocall_sleep (unsigned long * microsec)
     ms->ms_microsec = microsec ? *microsec : 0;
 
     retval = SGX_OCALL(OCALL_SLEEP, ms);
-    SGX_DBG(DBG_E, "sleep %ld ret %d\n", microsec? *microsec: 0, retval);
     if (microsec) {
         if (!retval)
             *microsec = 0;

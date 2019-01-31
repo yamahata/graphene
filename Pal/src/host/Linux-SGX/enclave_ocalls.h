@@ -129,18 +129,19 @@ struct ocall_marker_buf {
 };
 
 struct ocall_marker_ret {
-    int64_t ret;                            /* %rax */
-    struct ocall_marker_buf* prev_marker;   /* %rdx */
+    int64_t ret;                    /* %rax */
+    struct ocall_marker_buf * prev; /* %rdx */
 };
 
 struct ocall_marker_ret ocall_marker_save(struct ocall_marker_buf * marker);
+
 static inline struct ocall_marker_buf * ocall_marker_clear(void)
 {
     struct ocall_marker_buf * prev = NULL;
-    __asm__ volatile (
-        "xchgq %q0, %%gs:%c1"
+    asm volatile (
+        "xchgq %0, %%gs:%c1\n"
         : "+r"(prev)
-        : "i"(offsetof(struct ocall_marker_ret, prev_marker))
+        : "i"(offsetof(struct enclave_tls, ocall_marker))
         : "memory");
     return prev;
 }
