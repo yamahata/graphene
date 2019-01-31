@@ -178,6 +178,7 @@ static inline int atomic_add_return(int i, struct atomic_int *v)
 }
 
 #define atomic_inc_return(v)    atomic_add_return(1, v)
+#define atomic_dec_return(v)    atomic_add_return(-1, v)
 
 
 /* Helper function to atomically compare-and-swap the value in v.

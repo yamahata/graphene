@@ -217,16 +217,16 @@ void syscall_wrapper(void);
 
 void check_stack_hook (void);
 
-static inline uint64_t get_cur_preempt (void) {
+static inline int64_t get_cur_preempt (void) {
     shim_tcb_t* tcb = SHIM_GET_TLS();
     assert(tcb);
-    return tcb->context.preempt;
+    return atomic_read(&tcb->context.preempt);
 }
 
 #define BEGIN_SHIM(name, args ...)                          \
     SHIM_ARG_TYPE __shim_##name (args) {                    \
         SHIM_ARG_TYPE ret = 0;                              \
-        uint64_t preempt = get_cur_preempt();               \
+        int64_t preempt = get_cur_preempt();                \
         /* handle_signal(true); */                          \
         /* check_stack_hook(); */                           \
         BEGIN_SYSCALL_PROFILE();
@@ -458,13 +458,14 @@ static inline PAL_HANDLE thread_create (void * func, void * arg, int option)
     return DkThreadCreate(func, arg, option);
 }
 
-static inline void __disable_preempt (shim_tcb_t * tcb)
+static inline int64_t __disable_preempt (shim_tcb_t * tcb)
 {
     //tcb->context.syscall_nr += SYSCALL_NR_PREEMPT_INC;
     /* Assert if this counter overflows */
-    assert((tcb->context.preempt & ~SIGNAL_DELAYED) != ~SIGNAL_DELAYED);
-    tcb->context.preempt++;
-    //debug("disable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    int64_t preempt = atomic_inc_return(&tcb->context.preempt);
+    assert((preempt & ~SIGNAL_DELAYED) != ~SIGNAL_DELAYED);
+    //debug("disable preempt: %ld\n", preempt & ~SIGNAL_DELAYED);
+    return preempt;
 }
 
 static inline void disable_preempt (shim_tcb_t * tcb)
@@ -479,10 +480,33 @@ static inline void __enable_preempt (shim_tcb_t * tcb)
 {
     //tcb->context.syscall_nr -= SYSCALL_NR_PREEMPT_INC;
     /* Assert if this counter underflows */
-    assert(tcb->context.preempt > 0);
-    tcb->context.preempt--;
-    //debug("enable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    int64_t preempt = atomic_dec_return(&tcb->context.preempt);
+    assert(preempt >= 0);
+    //debug("enable preempt: %ld\n", preempt & ~SIGNAL_DELAYED);
 }
+
+static inline void __preempt_set_delayed(shim_tcb_t * tcb)
+{
+    struct atomic_int * preempt = &tcb->context.preempt;
+    int64_t old;
+    int64_t new;
+    do {
+        old = atomic_read(preempt);
+        new = old | SIGNAL_DELAYED;
+    } while (atomic_cmpxchg(preempt, old, new) != old);
+}
+
+static inline void __preempt_clear_delayed(shim_tcb_t * tcb)
+{
+    struct atomic_int * preempt = &tcb->context.preempt;
+    int64_t old;
+    int64_t new;
+    do {
+        old = atomic_read(preempt);
+        new = old & ~SIGNAL_DELAYED;
+    } while (atomic_cmpxchg(preempt, old, new) != old);
+}
+
 
 int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
                      PAL_PTR event, PAL_CONTEXT * context);
@@ -492,10 +516,11 @@ static inline void enable_preempt (shim_tcb_t * tcb)
     if (!tcb && !(tcb = SHIM_GET_TLS()))
         return;
 
-    if (!(tcb->context.preempt & ~SIGNAL_DELAYED))
+    int64_t preempt = atomic_read(&tcb->context.preempt);
+    if (!(preempt & ~SIGNAL_DELAYED))
         return;
 
-    if ((tcb->context.preempt & ~SIGNAL_DELAYED) == 1)
+    if ((preempt & ~SIGNAL_DELAYED) == 1)
         __handle_signal(tcb, 0, NULL, NULL, NULL);
 
     __enable_preempt(tcb);
