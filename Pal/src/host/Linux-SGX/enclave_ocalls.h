@@ -134,7 +134,7 @@ struct ocall_marker_ret {
 };
 
 struct ocall_marker_ret ocall_marker_save(struct ocall_marker_buf * marker);
-static inline void ocall_marker_clean(struct ocall_marker_buf * current)
+static inline struct ocall_marker_buf * ocall_marker_clear(void)
 {
     struct ocall_marker_buf * prev = NULL;
     __asm__ volatile (
@@ -142,7 +142,7 @@ static inline void ocall_marker_clean(struct ocall_marker_buf * current)
         : "+r"(prev)
         : "i"(offsetof(struct ocall_marker_ret, prev_marker))
         : "memory");
-    assert(prev == current);
+    return prev;
 }
 
 #endif /* ENCLAVE_OCALLS_H */
