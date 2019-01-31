@@ -518,6 +518,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
     ctx.cr2 = 0;
 
     if (event != 0) {
+        assert(uc->rax == -PAL_ERROR_INTERRUPTED);
         struct ocall_marker_buf * marker = ocall_marker_clear();
         ocall_marker_check(uc, marker);
         SGX_DBG(DBG_E,
