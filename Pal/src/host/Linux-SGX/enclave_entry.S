@@ -7,14 +7,12 @@
 
 .macro SGX_TLS_FLAGS_SET_EXECUTING_BIT reg
 	movq %gs:SGX_SELF, \reg
-	addq $SGX_FLAGS, \reg
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (\reg)
+	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(\reg)
 .endm
 
 .macro SGX_TLS_FLAGS_CLEAR_EXECUTING_BIT reg
 	movq %gs:SGX_SELF, \reg
-	addq $SGX_FLAGS, \reg
-	lock btrq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (\reg)
+	lock btrq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(\reg)
 .endm
 
 	.extern ecall_table
@@ -164,11 +162,9 @@ enclave_entry:
 	jmp .Lhandle_exception__
 
 .Lpend_async_event:
-	addq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
 	# %rdi = $PAL_EVENT_QUIT or $PAL_EVENT_SUSPEND or $PAL_EVENT_RESUME
-	lock btsq %rdi, (%rax)
-	subq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
-	lock btsq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%rax)
+	lock btsq %rdi, SGX_PENDING_ASYNC_EVENT(%rax)
+	lock btsq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, SGX_FLAGS(%rax)
 	jmp .Lhandle_exception_out
 
 .Lhandle_exception:
@@ -535,7 +531,7 @@ __restore_sgx_context_retry:
 	SGX_TLS_FLAGS_CLEAR_EXECUTING_BIT %r15
 	/* There is a window from here to movq below where stack
 	 * can grow. */
-	lock btrq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%r15)
+	lock btrq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, SGX_FLAGS(%r15)
 	jc .Ltry_again
 
 	popq %r15
@@ -555,7 +551,7 @@ __restore_sgx_context_retry_need_jmp_emulate:
 	jmp * - REDZONE_SIZE - 8(%rsp)
 
 .Ltry_again:
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%r15)
+	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(%r15)
 	subq $15 * 8, %rsp 	# revert popq
 	movq %rsp, %rdi
 	callq _DkExceptionHandlerMore
