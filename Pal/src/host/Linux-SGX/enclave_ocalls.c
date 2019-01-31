@@ -72,31 +72,6 @@
         } _ret;                                             \
     })
 
-#define OCALL_MARKER_SETUP()                    \
-    struct ocall_marker_buf __marker;           \
-    struct ocall_marker_ret __ret;              \
-    __ret = ocall_marker_save(&__marker);       \
-    assert(__ret.prev == NULL);                 \
-    if (__ret.ret < 0)                          \
-        goto __interrupted;
-
-#define OCALL_MARKER_CLEAR()                    \
-    do {                                        \
-        struct ocall_marker_buf * __prev =      \
-            ocall_marker_clear();               \
-        assert(&__marker == __prev);            \
-    } while (0)
-
-#define OCALL_MARKER_RETURN()                   \
-    do {                                        \
-    __interrupted:                              \
-        OCALL_EXIT();                           \
-        struct ocall_marker_buf * __prev =      \
-            ocall_marker_clear();               \
-        assert(&__marker == __prev);            \
-        return __ret.ret;                       \
-    } while (0)
-
 /* assert doesn't apply to ocall_print_string() to avoid assert loop */
 #define __OCALL_MARKER_SETUP()                  \
     struct ocall_marker_buf __marker;           \
@@ -115,6 +90,33 @@
     __interrupted:                              \
         OCALL_EXIT();                           \
         ocall_marker_clear();                   \
+        return __ret.ret;                       \
+    } while (0)
+
+#define OCALL_MARKER_SETUP()                    \
+    struct ocall_marker_buf __marker;           \
+    struct ocall_marker_ret __ret;              \
+    __ret = ocall_marker_save(&__marker);       \
+    assert(__ret.prev == NULL);                 \
+    if (__ret.ret < 0)                          \
+        goto __interrupted;
+
+#define OCALL_MARKER_CLEAR()                    \
+    do {                                        \
+        struct ocall_marker_buf * __prev =      \
+            ocall_marker_clear();               \
+        assert(__prev == &__marker ||           \
+               __prev == NULL);                 \
+    } while (0)
+
+#define OCALL_MARKER_RETURN()                   \
+    do {                                        \
+    __interrupted:                              \
+        OCALL_EXIT();                           \
+        struct ocall_marker_buf * __prev =      \
+            ocall_marker_clear();               \
+        assert(__prev == &__marker ||           \
+               __prev == NULL);                 \
         return __ret.ret;                       \
     } while (0)
 
