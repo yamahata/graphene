@@ -793,7 +793,8 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
 {
     if (uc == NULL || event == NULL || context == NULL) {
         /* TODO: implement here. Deliver signal to user program */
-        debug("FIXME __handle_signal flags 0x%lx\n", tcb->flags);
+        if (tcb->flags & SHIM_FLAG_SIGPENDING)
+            debug("FIXME __handle_signal flags 0x%lx\n", tcb->flags);
         __preempt_clear_delayed(tcb);
         return 0;
     }
