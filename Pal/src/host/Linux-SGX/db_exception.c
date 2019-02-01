@@ -353,7 +353,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 
     union {
         sgx_arch_exitinfo_t info;
-        int intval;
+        unsigned int intval;
     } ei = { .intval = exit_info };
     SGX_DBG(DBG_E,
             "exit_info 0x%08x vector 0x%04x type 0x%04x reserved %x valid %d\n",
