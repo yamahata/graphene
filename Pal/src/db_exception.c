@@ -87,8 +87,9 @@ void DkExceptionReturn (PAL_PTR event)
 
 /* This does not return */
 void __abort(void) {
-    asm volatile("pause");
+    //asm volatile("pause");
     asm volatile("hlt");
+    //asm volatile("int3");
     _DkProcessExit(1);
 }
 
