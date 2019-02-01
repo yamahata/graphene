@@ -473,7 +473,6 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     ctx.cr2 = 0;
 
     struct enclave_tls * tls = get_enclave_tls();
-    clear_bit(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, &tls->flags);
     clear_bit(event_num, &tls->pending_async_event);
     /* TODO: When EXINFO in MISC region is supported. retrieve address
      * information from MISC
