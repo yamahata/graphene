@@ -948,7 +948,7 @@ static bool __get_signal_to_deliver(struct sig_deliver * deliver)
                 break;
 
         if (!signal)
-            continue;
+            break;
 
         void (*handler) (int, siginfo_t *, void *);
         void (*restorer) (void);
@@ -993,6 +993,7 @@ bool deliver_signal_on_sysret(void * stack,
 
     clear_bit(SHIM_FLAG_SIGPENDING, &tcb->flags);
     if (!__get_signal_to_deliver(&deliver)) {
+        debug("no deliverable signal\n");
         /* syscallas.S restore %rax as return value for system call */
         tcb->context.syscall_nr = syscall_ret;
         return false;
