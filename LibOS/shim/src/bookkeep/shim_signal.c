@@ -615,11 +615,16 @@ static unsigned int fpstate_size_get(const struct _libc_fpstate * fpstate)
     return sizeof(struct swregs_state);
 }
 
+static void direct_call_if_sighandler_kill(
+    int sig, siginfo_t * info, void (*handler) (int, siginfo_t *, void *));
+
 static void __setup_sig_frame(
     shim_tcb_t * tcb, int sig, struct shim_signal * signal,
     PAL_PTR eventp, PAL_CONTEXT * context,
     void (*handler) (int, siginfo_t *, void *), void (*restorer) (void))
 {
+    direct_call_if_sighandler_kill(sig, &signal->info, handler);
+
     //PAL_EVENT * event = (PAL_EVENT *) eventp;
     //struct shim_thread * thread = (struct shim_thread *) tcb->tp;
 
@@ -1003,6 +1008,7 @@ bool deliver_signal_on_sysret(void * stack,
     struct shim_signal * signal = deliver.signal;
     void (*handler) (int, siginfo_t *, void *) = deliver.handler;
     void (*restorer) (void) = deliver.restorer;
+    direct_call_if_sighandler_kill(sig, &signal->info, handler);
 
     struct shim_regs * regs = stack;
     stack += sizeof(*regs);
@@ -1149,6 +1155,18 @@ static void sighandler_kill (int sig, siginfo_t * info, void * ucontext)
 static void sighandler_core (int sig, siginfo_t * info, void * ucontext)
 {
     sighandler_kill(sig, info, ucontext);
+}
+
+static void direct_call_if_sighandler_kill(
+    int sig, siginfo_t * info, void (*handler) (int, siginfo_t *, void *))
+{
+    /* we know sighandler_kill only kill the thread
+     * without using info and context */
+    if (handler == &sighandler_kill) {
+        debug("direct calling sighandler_kill\n");
+        // this thread exits.
+        handler(sig, info, NULL);
+    }
 }
 
 static void (*default_sighandler[NUM_SIGS]) (int, siginfo_t *, void *) =
