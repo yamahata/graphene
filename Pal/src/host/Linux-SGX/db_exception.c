@@ -315,19 +315,24 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
         SGX_DBG(DBG_E, "Loop exiting\n");
 }
 
-void _DkExceptionHandlerMore (sgx_context_t * uc)
+static void _DkExceptionHandlerRetrun (sgx_context_t * uc,
+                                       PAL_XREGS_STATE * xregs_state)
 {
     atomic_inc(get_event_nest());
+    PAL_CONTEXT ctx;
+    save_pal_context(&ctx, uc, xregs_state);
+    _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
+    restore_pal_context(uc, xregs_state, &ctx, true);
+}
 
+void _DkExceptionHandlerMore (sgx_context_t * uc)
+{
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
     SGX_DBG(DBG_E, "uc %p xregs_state %p\n", uc, xregs_state);
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     save_xregs(xregs_state);
 
-    PAL_CONTEXT ctx;
-    save_pal_context(&ctx, uc, xregs_state);
-    _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
-    restore_pal_context(uc, xregs_state, &ctx, true);
+    _DkExceptionHandlerRetrun(uc, xregs_state);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
@@ -368,7 +373,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             break;
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
-                restore_sgx_context(uc, xregs_state, true);
+                _DkExceptionHandlerRetrun(uc, xregs_state);
                 /* NOTREACHED */
             }
             event_num = PAL_EVENT_ILLEGAL;
@@ -385,7 +390,8 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         case SGX_EXCEPTION_VECTOR_DB:
         case SGX_EXCEPTION_VECTOR_BP:
         default:
-            restore_sgx_context(uc, xregs_state, true);
+            _DkExceptionHandlerRetrun(uc, xregs_state);
+            /* NOTREACHED */
             return;
         }
     }
