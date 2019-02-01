@@ -102,6 +102,7 @@ enclave_entry:
 	movq %rdi, %rsi
 	xorq %rdi, %rdi
 	movl SGX_GPR_EXITINFO(%rbx), %edi
+	movl $0, SGX_GPR_EXITINFO(%rbx) ## don't carry this info for next resume
 	testl $0x80000000, %edi
 	jnz .Lhandle_exception
 
@@ -197,7 +198,7 @@ enclave_entry:
 	jle .Lout_of_signal_stack
 	movq %gs:SGX_SIG_STACK_HIGH, %rax
 	cmpq %rax, %rsi
-	jge .Lout_of_signal_stack
+	jg .Lout_of_signal_stack
 	jmp .Lon_signal_stack
 
 .Lout_of_signal_stack:
@@ -226,7 +227,7 @@ enclave_entry:
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
-	xchgq %rdi, SGX_GPR_RDI(%rbx)
+	xchgq %rdi, SGX_GPR_RDI(%rbx) # 1st argument for _DkExceptionHandler()
 	movq %rdi, SGX_CONTEXT_RDI(%rsi)
 
 	# dump the rest of context
@@ -267,7 +268,7 @@ enclave_entry:
 	movq %rdi, SGX_CONTEXT_RIP(%rsi)
 
 	movq %rsi, SGX_GPR_RSP(%rbx)
-	movq %rsi, SGX_GPR_RSI(%rbx)
+	movq %rsi, SGX_GPR_RSI(%rbx) ## 2nd argument for _DkExceptionHandler()
 
 	/* TODO: save EXINFO in MISC region */
 
