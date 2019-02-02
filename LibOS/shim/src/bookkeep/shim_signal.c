@@ -1012,6 +1012,12 @@ bool deliver_signal_on_sysret(void * stack,
           stack, &tcb, tcb);
 
     clear_bit(SHIM_FLAG_SIGPENDING, &tcb->flags);
+    /* FIXME: sigsuspend, sigwait, sigwaitinfo, pselect, ppoll are
+     * broken because signal mask was changed when blocking and
+     * is restored on returning from system call.
+     * So we miss the signal which is masked in user space and
+     * unmasked during blocking.
+     */
     if (!__get_signal_to_deliver(&deliver)) {
         debug("no deliverable signal\n");
         /* syscallas.S restore %rax as return value for system call */
