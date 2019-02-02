@@ -149,6 +149,15 @@ static void restore_pal_context (
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
 
+    if (retry_event)
+        SGX_DBG(DBG_E,
+                "ctx: rsp 0x%08lx rip 0x%08lx rip +0x%08lx\n"
+                " retry %d event_nest %ld flags 0x%lx async 0x%lx marker %p\n",
+                ctx->rsp, ctx->rip, ctx->rip - (uintptr_t) TEXT_START,
+                retry_event, atomic_read(get_event_nest()),
+                GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event),
+                GET_ENCLAVE_TLS(ocall_marker));
+
     uc->rax = ctx->rax;
     uc->rbx = ctx->rbx;
     uc->rcx = ctx->rcx;
@@ -327,22 +336,12 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
         SGX_DBG(DBG_E, "Loop exiting count %d\n", count);
 }
 
-static void _DkExceptionHandlerRetrun (sgx_context_t * uc,
-                                       PAL_XREGS_STATE * xregs_state)
-{
-    int64_t nest = atomic_read(get_event_nest());
-    PAL_CONTEXT ctx;
-    save_pal_context(&ctx, uc, xregs_state);
-    _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
-    restore_pal_context(uc, xregs_state, &ctx, nest == 1);
-}
-
 void _DkExceptionHandlerMore (sgx_context_t * uc)
 {
     atomic_inc(get_event_nest());
 
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
-    SGX_DBG(DBG_E, "uc %p xregs_state %p next %ld flasg 0x%lx async 0x%lx marker %p\n",
+    SGX_DBG(DBG_E, "uc %p xregs_state %p nest %ld flasg 0x%lx async 0x%lx marker %p\n",
             uc, xregs_state, atomic_read(get_event_nest()),
             GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event),
             GET_ENCLAVE_TLS(ocall_marker));
@@ -353,16 +352,23 @@ void _DkExceptionHandlerMore (sgx_context_t * uc)
     save_pal_context(&ctx, uc, xregs_state);
     _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
     restore_pal_context(uc, xregs_state, &ctx, true);
-    //_DkExceptionHandlerRetrun(uc, xregs_state);
+}
+
+static void _DkExceptionHandlerRetrun (
+    sgx_context_t * uc, PAL_XREGS_STATE * xregs_state, bool retry_event)
+{
+    PAL_CONTEXT ctx;
+    save_pal_context(&ctx, uc, xregs_state);
+    restore_pal_context(uc, xregs_state, &ctx, retry_event);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
     int64_t nest = atomic_inc_return(get_event_nest());
-    //bool retry_event = (nest == 1);
+    bool retry_event = (nest == 1);
 
     PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
-    SGX_DBG(DBG_E, "uc %p xregs_state %p next %ld flags 0x%lx async 0x%lx marker %p\n",
+    SGX_DBG(DBG_E, "uc %p xregs_state %p nest %ld flags 0x%lx async 0x%lx marker %p\n",
             uc, xregs_state, nest,
             GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event),
             GET_ENCLAVE_TLS(ocall_marker));
@@ -398,7 +404,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             break;
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
-                _DkExceptionHandlerRetrun(uc, xregs_state);
+                _DkExceptionHandlerRetrun(uc, xregs_state, retry_event);
                 /* NOTREACHED */
             }
             event_num = PAL_EVENT_ILLEGAL;
@@ -415,7 +421,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         case SGX_EXCEPTION_VECTOR_DB:
         case SGX_EXCEPTION_VECTOR_BP:
         default:
-            _DkExceptionHandlerRetrun(uc, xregs_state);
+            _DkExceptionHandlerRetrun(uc, xregs_state, retry_event);
             /* NOTREACHED */
             return;
         }
@@ -492,12 +498,8 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         /* nothing */
         break;
     }
-    _DkGenericSignalHandle(event_num, arg, &ctx, uc, xregs_state, true);
-    //_DkGenericSignalHandle(event_num, arg, &ctx, uc, xregs_state, retry_event);
-
-    _DkExceptionHandlerLoop(&ctx, uc, xregs_state);
-    restore_pal_context(uc, xregs_state, &ctx, true);
-    //restore_pal_context(uc, xregs_state, &ctx, retry_event);
+    _DkGenericSignalHandle(event_num, arg, &ctx, uc, xregs_state, retry_event);
+    restore_pal_context(uc, xregs_state, &ctx, retry_event);
 }
 
 void _DkRaiseFailure (int error)
@@ -537,7 +539,6 @@ void _DkExceptionReturn (void * event)
     assert((((uintptr_t)e->xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (e->uc + 1) == e->xregs_state);
 
-    //_DkExceptionHandlerLoop(ctx, e->uc, e->xregs_state);
     restore_pal_context(e->uc, e->xregs_state, ctx, e->retry_event);
 }
 
