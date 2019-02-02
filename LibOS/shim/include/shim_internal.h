@@ -227,7 +227,11 @@ static inline int64_t get_cur_preempt (void) {
     SHIM_ARG_TYPE __shim_##name (args) {                    \
         SHIM_ARG_TYPE ret = 0;                              \
         int64_t preempt = get_cur_preempt();                \
+        if (preempt != 0) {                                 \
+            debug("preempt 0x%lx\n", preempt);              \
+        }                                                   \
         assert((preempt & SIGNAL_DELAYED) == 0);            \
+        assert((preempt & ~SIGNAL_DELAYED) == 0);           \
         /* handle_signal(true); */                          \
         /* check_stack_hook(); */                           \
         BEGIN_SYSCALL_PROFILE();
@@ -235,6 +239,11 @@ static inline int64_t get_cur_preempt (void) {
 #define END_SHIM(name)                                      \
         END_SYSCALL_PROFILE(name);                          \
         /* handle_signal(false); */                         \
+        int64_t __preempt = get_cur_preempt();              \
+        if (preempt != __preempt) {                         \
+            debug("preempt 0x%lx 0x%lx\n",                  \
+                  preempt, __preempt);                      \
+        }                                                   \
         assert(preempt == get_cur_preempt());               \
         handle_sysret_signal();                             \
         return ret;                                         \
