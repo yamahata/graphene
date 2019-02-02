@@ -910,13 +910,15 @@ void handle_signal (bool delayed_only)
         debug("signal delayed (%ld)\n", preempt & ~SIGNAL_DELAYED);
         __preempt_set_delayed(tcb);
         set_bit(SHIM_FLAG_SIGPENDING, &tcb->flags);
+        __enable_preempt(tcb);
     } else {
-        if (!(delayed_only && !(preempt & SIGNAL_DELAYED))) {
-            __handle_signal(tcb, 0, NULL, NULL, NULL);
-        }
+        do {
+            if (!delayed_only || (preempt & SIGNAL_DELAYED))
+                __handle_signal(tcb, 0, NULL, NULL, NULL);
+            preempt = atomic_cmpxchg(&tcb->context.preempt, 1, 0);
+        } while (preempt != 1);
     }
 
-    __enable_preempt(tcb);
     debug("__enable_preempt: %s:%d\n", __FILE__, __LINE__);
 }
 

@@ -239,13 +239,11 @@ static inline int64_t get_cur_preempt (void) {
 #define END_SHIM(name)                                      \
         END_SYSCALL_PROFILE(name);                          \
         /* handle_signal(false); */                         \
-        int64_t __preempt = get_cur_preempt();              \
-        if (preempt != __preempt) {                         \
-            debug("preempt 0x%lx 0x%lx\n",                  \
-                  preempt, __preempt);                      \
-        }                                                   \
-        assert(preempt == get_cur_preempt());               \
+        /* handle_sysret_signal() handles SIGNAL_DELAYED */ \
+        assert(preempt ==                                   \
+               (get_cur_preempt() & ~SIGNAL_DELAYED));      \
         handle_sysret_signal();                             \
+        assert(preempt == get_cur_preempt());               \
         return ret;                                         \
     }
 
