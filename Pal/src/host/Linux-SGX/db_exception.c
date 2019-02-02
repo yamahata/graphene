@@ -292,7 +292,7 @@ static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx, sgx_context_t * uc,
     struct enclave_tls * tls = get_enclave_tls();
     do {
         int event_num = ffsl(GET_ENCLAVE_TLS(pending_async_event));
-        if (event_num > 0 &&
+        if (event_num-- > 0 &&
             test_and_clear_bit(event_num, &tls->pending_async_event)) {
             struct ocall_marker_buf * marker = ocall_marker_clear();
             if (ocall_marker_check(uc, marker)) {
