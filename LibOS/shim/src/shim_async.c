@@ -131,8 +131,10 @@ int init_async (void)
     return 0;
 }
 
-#define IDLE_SLEEP_TIME     1000
-#define MAX_IDLE_CYCLES     100
+//#define IDLE_SLEEP_TIME     1000
+//#define MAX_IDLE_CYCLES     100
+#define IDLE_SLEEP_TIME     10000
+#define MAX_IDLE_CYCLES     10
 
 static void shim_async_helper (void * arg)
 {
