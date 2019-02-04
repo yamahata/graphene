@@ -244,6 +244,14 @@ update_list:
 
             listp_for_each_entry_safe(tmp, n, &async_list, list) {
                 if (tmp->object) {
+                    if (object_num == object_list_size) {
+                        PAL_HANDLE * tmp = malloc(
+                            sizeof(PAL_HANDLE) * (1 + object_list_size * 2));
+                        memcpy(tmp, local_objects,
+                               sizeof(PAL_HANDLE) * (1 + object_list_size));
+                        object_list_size *= 2;
+                        local_objects = tmp;
+                    }
                     local_objects[object_num + 1] = tmp->object;
                     object_num++;
                 }
