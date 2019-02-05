@@ -565,6 +565,8 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
 
     if (event != 0) {
         assert(uc->rax == -PAL_ERROR_INTERRUPTED);
+        set_bit(SGX_TLS_FLAGS_EVENT_EXECUTING_BIT,
+                &get_enclave_tls()->flags);
         struct ocall_marker_buf * marker = ocall_marker_clear();
         ocall_marker_check(uc, marker);
         SGX_DBG(DBG_E,
@@ -575,7 +577,10 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                 xregs_state,
                 atomic_read(event_nest), marker);
         save_pal_context(&ctx, uc, xregs_state);
-        if (!_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state, retry_event)
+        if (test_and_clear_bit(event,
+                               &get_enclave_tls()->pending_async_event) &&
+            !_DkGenericSignalHandle(event, 0, &ctx, uc, xregs_state,
+                                    retry_event)
             && event != PAL_EVENT_RESUME)
             _DkThreadExit();
         atomic_dec(event_nest);
