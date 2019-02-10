@@ -550,6 +550,10 @@ __restore_sgx_context_retry_need_jmp_emulate:
 
 .Ltry_again:
 	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(%r15)
+	## XXX TODO. check if the stack
+	## what if %rsp was on signal stack.
+	## just substracting %rsp doesn't work. check %rsp is
+	## in signal stack.
 	subq $15 * 8, %rsp 	# revert popq
 	movq %rsp, %rdi
 	callq _DkExceptionHandlerMore
