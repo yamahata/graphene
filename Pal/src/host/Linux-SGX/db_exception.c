@@ -623,6 +623,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
             _DkThreadExit();
         atomic_dec(event_nest);
     } else {
+        ocall_marker_clear(); /* Now the ocall completed safely. */
         save_pal_context(&ctx, uc, xregs_state);
     }
 
