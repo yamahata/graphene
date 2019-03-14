@@ -501,6 +501,17 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     SGX_DBG(DBG_E, "rip 0x%08lx +0x%08lx nest: %ld flags: 0x%lx async: 0x%lx marker %p\n",
             uc->rip, uc->rip - (uintptr_t)TEXT_START, nest,
             GET_ENCLAVE_TLS(flags), GET_ENCLAVE_TLS(pending_async_event), marker);
+    if (nest > 1 &&
+        (event_num == PAL_EVENT_QUIT ||
+         event_num == PAL_EVENT_SUSPEND ||
+         event_num == PAL_EVENT_RESUME)) {
+        /* ocall from exception handler might be interrupted */
+        ocall_marker_check(uc, marker);
+        /* TODO: optimize out save/restore xregs */
+        restore_sgx_context(uc, xregs_state, false);
+        /* NOTREACHED */
+    }
+
     PAL_CONTEXT ctx;
 
     /* TODO: save EXINFO in MISC regsion and populate those */
@@ -581,9 +592,9 @@ void _DkExceptionReturn (void * event)
 void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                              PAL_XREGS_STATE * xregs_state)
 {
-    struct atomic_int * event_nest = get_event_nest();
-    bool retry_event = (atomic_read(event_nest) == 0);
-    atomic_inc(event_nest);
+    int64_t nest = atomic_inc_return(get_event_nest());
+    bool retry_event = (nest == 1);
+
     assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
     assert((PAL_XREGS_STATE*) (uc + 1) == xregs_state);
 
@@ -606,8 +617,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                 " xregs_state %p event_nest %ld flags 0x%lx async 0x%lx marker %p\n",
                 event, uc, uc->rsp, &uc->rsp,
                 uc->rip - (uintptr_t)TEXT_START,
-                xregs_state,
-                atomic_read(event_nest),
+                xregs_state, nest,
                 GET_ENCLAVE_TLS(flags),
                 GET_ENCLAVE_TLS(pending_async_event), marker);
         if (marker)
@@ -621,7 +631,6 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
                                     retry_event)
             && event != PAL_EVENT_RESUME)
             _DkThreadExit();
-        atomic_dec(event_nest);
     } else {
         ocall_marker_clear(); /* Now the ocall completed safely. */
         save_pal_context(&ctx, uc, xregs_state);
