@@ -101,8 +101,8 @@ enclave_entry:
 
 	movq %rdi, %rsi
 	xorq %rdi, %rdi
-	movl SGX_GPR_EXITINFO(%rbx), %edi
-	movl $0, SGX_GPR_EXITINFO(%rbx) ## don't carry this info for next resume
+	movl $0, %edi
+	xchgl %edi, SGX_GPR_EXITINFO(%rbx) ## don't carry this info for next resume
 	testl $0x80000000, %edi
 	jnz .Lhandle_exception
 
@@ -173,6 +173,11 @@ enclave_entry:
 .Lhandle_exception__:
 	# %rbx SGX_GPR base address from TLS
 	movq SGX_GPR_RSP(%rbx), %rsi
+	movq %gs:SGX_STACK, %rax
+	cmpq $0, %rax
+	je 1f
+	movq %rax, %rsi
+1:
 
 	/*
 	 * when interrupted at __restore_sgx_context_need_jmp_emulate
@@ -364,8 +369,6 @@ sgx_ocall:
 	pushq %rcx
 	pushq $0        # place holder for RAX
 
-	movq %rsp, %gs:SGX_STACK
-
 	jmp .Leexit
 
 .Lexception_handler:
@@ -387,6 +390,7 @@ sgx_ocall:
 	xorq %r15, %r15
 	xorq %rbp, %rbp
 
+	movq %rsp, %gs:SGX_STACK
 	movq %gs:SGX_USTACK, %rsp
 	andq $STACK_ALIGN, %rsp
 
@@ -400,7 +404,8 @@ sgx_ocall:
 	# RDI - return value
 	# RSI - external event (if there is any)
 
-	movq %gs:SGX_STACK, %rsp
+	movq $0, %rsp
+	xchgq %rsp, %gs:SGX_STACK
 
 	## sgx_context_t::rax = %rdi
 	movq %rdi, (%rsp) # return value
