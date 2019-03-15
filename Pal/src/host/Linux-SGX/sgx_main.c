@@ -244,7 +244,7 @@ int initialize_enclave (struct pal_enclave * enclave)
         } ret;                                                      \
     })
 
-    SGX_DBG(DBG_E, "loading %s", ENCLAVE_FILENAME);
+    SGX_DBG(DBG_E, "loading %s\n", ENCLAVE_FILENAME);
     enclave_image = INLINE_SYSCALL(open, 3, ENCLAVE_FILENAME, O_RDONLY, 0);
     if (IS_ERR(enclave_image)) {
         SGX_DBG(DBG_E, "cannot find %s\n", ENCLAVE_FILENAME);
