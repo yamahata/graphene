@@ -89,8 +89,12 @@ debugger/sgx_gdb.so: debugger/sgx_gdb.c debugger/sgx_gdb.h sgx_arch.h
 	@echo [ host/Linux-SGX/$@ ]
 	$(CC) -shared -Wall -fPIC -O2 -std=c11 $^ -o $@ -lc
 
+enclave_entry.o sgx_entry.o: asm-offsets.h
+
 sgx-driver/isgx_version.h:
 	$(MAKE) -C sgx-driver $(notdir $<)
+
+include ../../../../Makefile.rules
 
 CLEAN_FILES += $(notdir $(pal_static) $(pal_lib) $(pal_sec) $(pal_loader))
 
