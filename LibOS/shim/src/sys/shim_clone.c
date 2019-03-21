@@ -154,6 +154,17 @@ int migrate_fork (struct shim_cp_store * cpstore,
                   struct shim_thread * thread,
                   struct shim_process * process, va_list ap);
 
+/* see syscall_wrapper and sigill handler for syscall emulation */
+static void * get_child_ret_ip(const struct shim_thread * thread)
+{
+    void * ret;
+    ret = thread->shim_tcb->context.ret_ip;
+    if (ret == &__syscall_wrapper_after_syscall)
+        ret = (void*)thread->shim_tcb->context.regs->rcx;
+    return ret;
+}
+
+
 /*  long int __arg0 - flags
  *  long int __arg1 - 16 bytes ( 2 words ) offset into the child stack allocated
  *                    by the parent     */
@@ -261,7 +272,7 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
             thread->stack_top = vma.addr + vma.length;
             thread->stack_red = thread->stack = vma.addr;
             tcb->shim_tcb.context.sp = user_stack_addr;
-            tcb->shim_tcb.context.ret_ip = *(void **) user_stack_addr;
+            tcb->shim_tcb.context.ret_ip = get_child_ret_ip(self);
         }
 
         thread->is_alive = true;
@@ -309,7 +320,10 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
     new_args.thread    = thread;
     new_args.parent    = self;
     new_args.stack     = user_stack_addr;
-    new_args.return_pc = *(void **) user_stack_addr;
+    new_args.return_pc = get_child_ret_ip(self);
+    debug("ret_ip %p rcx 0x%08lx stack %p)\n",
+          self->shim_tcb->context.ret_ip, self->shim_tcb->context.regs->rcx,
+          user_stack_addr);
 
     // Invoke DkThreadCreate to spawn off a child process using the actual 
     // "clone" system call. DkThreadCreate allocates a stack for the child 
