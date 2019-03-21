@@ -1,16 +1,11 @@
+#include <asm-offsets-build.h>
+
 #include <stddef.h>
 
 #include <shim_internal.h>
 #include <shim_tls.h>
 #include <shim_thread.h>
 #include <shim_types.h>
-
-
-#define DEFINE(name, value)                                             \
-    __asm__ volatile(".ascii \" #define " #name " %0 \"\n":: "i"(value))
-
-#define OFFSET(name, str, member)   DEFINE(name, offsetof(struct str, member))
-#define OFFSET_T(name, str_t, member) DEFINE(name, offsetof(str_t, member))
 
 void dummy(void)
 {
