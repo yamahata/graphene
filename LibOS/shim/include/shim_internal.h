@@ -471,12 +471,8 @@ static inline void __enable_preempt (shim_tcb_t * tcb)
     //debug("enable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
 }
 
-typedef struct {
-    PAL_IDX         event_num;
-    PAL_CONTEXT     context;
-    ucontext_t *    uc;
-} PAL_EVENT;
-int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc, PAL_EVENT * event);
+int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
+                     PAL_PTR event, PAL_CONTEXT * context);
 
 static inline void enable_preempt (shim_tcb_t * tcb)
 {
@@ -487,7 +483,7 @@ static inline void enable_preempt (shim_tcb_t * tcb)
         return;
 
     if ((tcb->context.preempt & ~SIGNAL_DELAYED) == 1)
-        __handle_signal(tcb, 0, NULL, NULL);
+        __handle_signal(tcb, 0, NULL, NULL, NULL);
 
     __enable_preempt(tcb);
 }
