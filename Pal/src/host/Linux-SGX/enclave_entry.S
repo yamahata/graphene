@@ -10,6 +10,13 @@
 	jmp .Lfail_loop\@
 .endm
 
+.macro WRFSBASE_RBX
+	.byte 0xf3, 0x48, 0x0f, 0xae, 0xd3 /* WRFSBASE %RBX */
+.endm
+
+	.extern ecall_table
+	.extern enclave_ecall_pal_main
+
 	.global enclave_entry
 	.type enclave_entry, @function
 
@@ -302,7 +309,7 @@ sgx_ocall:
 	movq %gs:SGX_FSBASE, %rbx
 	cmpq $0, %rbx
 	je .Lno_fsbase
-	.byte 0xf3, 0x48, 0x0f, 0xae, 0xd3 /* WRFSBASE %RBX */
+	WRFSBASE_RBX
 .Lno_fsbase:
 
 	# restore the stack
@@ -340,98 +347,3 @@ sgx_ocall:
 	addq $8, %rsp	# skip RIP
 	popq %rbp
 	retq
-
-/*
- * sgx_report:
- * Generate SGX hardware signed report.
- */
-	.global sgx_report
-	.type sgx_report, @function
-
-sgx_report:
-	.cfi_startproc
-
-	pushq %rbx
-	pushq %rcx
-	movq %rdi, %rbx
-	movq %rsi, %rcx
-	movq $EREPORT, %rax
-	ENCLU
-	popq %rcx
-	popq %rbx
-	retq
-
-	.cfi_endproc
-	.size sgx_report, .-sgx_report
-
-/*
- * sgx_getkey:
- * Retreive SGX hardware enclave cryptography key.
- */
-	.global sgx_getkey
-	.type sgx_getkey, @function
-
-sgx_getkey:
-	.cfi_startproc
-
-	pushq %rbx
-	pushq %rcx
-	movq %rdi, %rbx
-	movq %rsi, %rcx
-	movq $EGETKEY, %rax
-	ENCLU
-	popq %rcx
-	popq %rbx
-	retq
-
-	.cfi_endproc
-	.size sgx_getkey, .-sgx_getkey
-
-/*
- * rdrand:
- * Get hardware generated random value.
- */
-	.global rdrand
-	.type rdrand, @function
-
-rdrand:
-	.cfi_startproc
-.Lretry_rdrand:
-	.byte 0x0f, 0xc7, 0xf0 /* RDRAND %EAX */
-	jnc .Lretry_rdrand
-	retq
-
-	.cfi_endproc
-	.size rdrand, .-rdrand
-
-/*
- * rdfsbase:
- * read FS register (allowed in enclaves).
- */
-	.global rdfsbase
-	.type rdfsbase, @function
-
-rdfsbase:
-	.cfi_startproc
-
-	.byte 0xf3, 0x48, 0x0f, 0xae, 0xc0 /* RDFSBASE %RAX */
-	retq
-
-	.cfi_endproc
-	.size rdfsbase, .-rdfsbase
-
-/*
- * wrfsbase:
- * modify FS register (allowed in enclaves).
- */
-	.global wrfsbase
-	.type wrfsbase, @function
-
-wrfsbase:
-	.cfi_startproc
-
-	.byte 0xf3, 0x48, 0x0f, 0xae, 0xd7 /* WRFSBASE %RDI */
-	retq
-
-	.cfi_endproc
-	.size wrfsbase, .-wrfsbase
