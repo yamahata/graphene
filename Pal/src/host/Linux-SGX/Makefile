@@ -9,8 +9,8 @@ defs	= -DIN_PAL -DPAL_DIR=$(PAL_DIR) -DRUNTIME_DIR=$(RUNTIME_DIR)
 enclave-objs = $(addprefix db_,files devices pipes sockets streams memory \
 		 threading mutex events process object main rtld \
 		 exception misc ipc spinlock) \
-	       $(addprefix enclave_,ocalls ecalls framework pages untrusted) 
-enclave-asm-objs = enclave_entry 
+	       $(addprefix enclave_,ocalls ecalls framework pages untrusted)
+enclave-asm-objs = enclave_entry
 urts-objs = $(addprefix sgx_,enclave framework main rtld thread process exception graphene)
 urts-asm-objs = sgx_entry
 graphene_lib = .lib/graphene-lib.a
@@ -83,14 +83,12 @@ pal-sgx: $(addsuffix .o,$(urts-objs) $(urts-asm-objs)) $(graphene_lib)
 
 debugger/sgx_gdb.so: debugger/sgx_gdb.c debugger/sgx_gdb.h sgx_arch.h
 	@echo [ host/Linux-SGX/$@ ]
-	$(CC) -Wall -fPIC -O2 -std=c11 -c debugger/sgx_gdb.c -o debugger/sgx_gdb.o
-	$(LD) -shared debugger/sgx_gdb.o -o debugger/sgx_gdb.so -lc
+	$(CC) -shared -Wall -fPIC -O2 -std=c11 $^ -o $@ -lc
 
 sgx-driver/isgx_version.h:
 	$(MAKE) -C sgx-driver $(notdir $<)
 
 CLEAN_FILES += $(notdir $(pal_static) $(pal_lib) $(pal_sec) $(pal_loader))
-CLEAN_FILES += debugger/sgx_gdb.o
 
 .PHONY: clean
 clean:
