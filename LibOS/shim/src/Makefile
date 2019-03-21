@@ -1,6 +1,5 @@
 RUNTIME_DIR = $(CURDIR)/../../../Runtime
 
-include ../../../Makefile.rules
 include ../../../Pal/src/Makefile.Host
 
 CC	= gcc
