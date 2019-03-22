@@ -165,7 +165,7 @@ void deliver_signal (PAL_PTR event, siginfo_t * info, PAL_CONTEXT * context)
     struct shim_thread * cur_thread = (struct shim_thread *) tcb->tp;
     int sig = info->si_signo;
 
-    __disable_preempt(tcb);
+    int64_t preempt = __disable_preempt(tcb);
 
     struct shim_signal * signal = __alloca(sizeof(struct shim_signal));
     /* save in signal */
@@ -174,7 +174,7 @@ void deliver_signal (PAL_PTR event, siginfo_t * info, PAL_CONTEXT * context)
     __store_context(tcb, context, signal);
     signal->pal_context = context;
 
-    if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1 ||
+    if ((preempt & ~SIGNAL_DELAYED) > 1 ||
         __sigismember(&cur_thread->signal_mask, sig) ||
         event == NULL /* send to self */) {
         struct shim_signal ** signal_log = NULL;
@@ -543,13 +543,12 @@ static void resume_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
 
     if (!IS_INTERNAL_TID(get_cur_tid())) {
         assert(tcb);
-        __disable_preempt(tcb);
+        int64_t preempt = __disable_preempt(tcb);
 
-        if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1) {
+        if ((preempt & ~SIGNAL_DELAYED) > 1) {
             debug("delaying signal preempt %ld delay: 0x%lx\n",
-                  (tcb->context.preempt & ~SIGNAL_DELAYED),
-                  (tcb->context.preempt & SIGNAL_DELAYED));
-            tcb->context.preempt |= SIGNAL_DELAYED;
+                  (preempt & ~SIGNAL_DELAYED), (preempt & SIGNAL_DELAYED));
+            __preempt_set_delayed(tcb);
         } else {
             //PAL_EVENT * event = (PAL_EVENT *) eventp;
             debug("resume_upcall rsp: %08lx rip %08lx tid: %d\n",
@@ -792,8 +791,13 @@ __handle_one_signal (shim_tcb_t * tcb, int sig, struct shim_signal * signal,
 int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
                      PAL_PTR event, PAL_CONTEXT * context)
 {
-    if (/*uc == NULL ||*/ event == NULL || context == NULL)
+    if (uc == NULL || event == NULL || context == NULL) {
+        /* TODO: implement here. Deliver signal to user program */
+        if (tcb->flags & SHIM_FLAG_SIGPENDING)
+            debug("FIXME __handle_signal flags 0x%lx\n", tcb->flags);
+        __preempt_clear_delayed(tcb);
         return 0;
+    }
 
 #if 0
     if (event != NULL &&
@@ -825,9 +829,11 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
 
     sig = begin_sig;
 
+    __preempt_clear_delayed(tcb);
     while (atomic_read(&thread->has_signal)) {
         struct shim_signal * signal = NULL;
 
+        __preempt_clear_delayed(tcb);
         for ( ; sig < end_sig ; sig++)
             if (!__sigismember(&thread->signal_mask, sig) &&
                 (signal = fetch_signal_log(tcb, thread, sig)))
@@ -842,7 +848,6 @@ int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc,
         __handle_one_signal(tcb, sig, signal, event, context);
         free(signal);
         DkThreadYieldExecution();
-        tcb->context.preempt &= ~SIGNAL_DELAYED;
         if (/*uc != NULL &&*/ event != NULL && context != NULL)
             return 1;
     }
@@ -882,19 +887,21 @@ void handle_signal (bool delayed_only)
 
     debug("handle signal (counter = %ld)\n", atomic_read(&thread->has_signal));
 
-    __disable_preempt(tcb);
+    int64_t preempt = __disable_preempt(tcb);
 
-    if ((tcb->context.preempt & ~SIGNAL_DELAYED) > 1) {
-        debug("signal delayed (%ld)\n", tcb->context.preempt & ~SIGNAL_DELAYED);
-        tcb->context.preempt |= SIGNAL_DELAYED;
+    if ((preempt & ~SIGNAL_DELAYED) > 1) {
+        debug("signal delayed (%ld)\n", preempt & ~SIGNAL_DELAYED);
+        __preempt_set_delayed(tcb);
         set_bit(SHIM_FLAG_SIGPENDING, &tcb->flags);
+        __enable_preempt(tcb);
     } else {
-        if (!(delayed_only && !(tcb->context.preempt & SIGNAL_DELAYED))) {
-            __handle_signal(tcb, 0, NULL, NULL, NULL);
-        }
+        do {
+            if (!delayed_only || (preempt & SIGNAL_DELAYED))
+                __handle_signal(tcb, 0, NULL, NULL, NULL);
+            preempt = atomic_cmpxchg(&tcb->context.preempt, 1, 0);
+        } while (preempt != 1);
     }
 
-    __enable_preempt(tcb);
     debug("__enable_preempt: %s:%d\n", __FILE__, __LINE__);
 }
 
