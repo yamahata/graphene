@@ -8,6 +8,8 @@
 
 #define SHIM_TLS_CANARY $xdeadbeef
 
+#define SHIM_FLAG_SIGPENDING        0
+
 #else /* !__ASSEMBLER__ */
 
 #define SHIM_TLS_CANARY 0xdeadbeef
@@ -68,6 +70,8 @@ struct shim_tcb {
     unsigned int            tid;
     int                     pal_errno;
     struct debug_buf *      debug_buf;
+#define SHIM_FLAG_SIGPENDING   0
+    unsigned long           flags;
 
     /* This record is for testing the memory of user inputs.
      * If a segfault occurs with the range [start, end],

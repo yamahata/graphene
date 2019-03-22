@@ -171,8 +171,12 @@ static inline void do_pause (void);
     do { debug("%s (" __FILE__ ":%d)\n", __func__, __LINE__); } while (0)
 
 /* definition for syscall table */
+extern unsigned long fpu_xstate_size;
+void handle_sysret_signal(void);
 void handle_signal (bool delayed_only);
+int handle_next_signal(ucontext_t * user_uc);
 long convert_pal_errno (long err);
+void __sigreturn(mcontext_t * user_uc);
 
 #define PAL_ERRNO  convert_pal_errno(PAL_NATIVE_ERRNO)
 
@@ -212,8 +216,9 @@ static inline uint64_t get_cur_preempt (void) {
 
 #define END_SHIM(name)                                      \
         END_SYSCALL_PROFILE(name);                          \
-        handle_signal(false);                               \
+        /* handle_signal(false); */                         \
         assert(preempt == get_cur_preempt());               \
+        handle_sysret_signal();                             \
         return ret;                                         \
     }
 
@@ -430,7 +435,7 @@ static inline void __disable_preempt (shim_tcb_t * tcb)
     /* Assert if this counter overflows */
     assert((tcb->context.preempt & ~SIGNAL_DELAYED) != ~SIGNAL_DELAYED);
     tcb->context.preempt++;
-    //debug("disable preempt: %d\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    //debug("disable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
 }
 
 static inline void disable_preempt (shim_tcb_t * tcb)
@@ -447,10 +452,15 @@ static inline void __enable_preempt (shim_tcb_t * tcb)
     /* Assert if this counter underflows */
     assert(tcb->context.preempt > 0);
     tcb->context.preempt--;
-    //debug("enable preempt: %d\n", tcb->context.preempt & ~SIGNAL_DELAYED);
+    //debug("enable preempt: %ld\n", tcb->context.preempt & ~SIGNAL_DELAYED);
 }
 
-void __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc);
+typedef struct {
+    PAL_IDX         event_num;
+    PAL_CONTEXT     context;
+    ucontext_t *    uc;
+} PAL_EVENT;
+int __handle_signal (shim_tcb_t * tcb, int sig, ucontext_t * uc, PAL_EVENT * event);
 
 static inline void enable_preempt (shim_tcb_t * tcb)
 {
@@ -461,7 +471,7 @@ static inline void enable_preempt (shim_tcb_t * tcb)
         return;
 
     if ((tcb->context.preempt & ~SIGNAL_DELAYED) == 1)
-        __handle_signal(tcb, 0, NULL);
+        __handle_signal(tcb, 0, NULL, NULL);
 
     __enable_preempt(tcb);
 }
@@ -715,6 +725,13 @@ extern void * migrated_memory_end;
 
 extern void * __load_address, * __load_address_end;
 extern void * __code_address, * __code_address_end;
+extern void * __syscallas_signal_allowed_0_begin;
+extern void * __syscallas_signal_allowed_0_end;
+extern void * __syscallas_signal_allowed_1_begin;
+extern void * __syscallas_signal_allowed_1_end;
+extern void * __syscallas_signal_allowed_2_begin;
+extern void * __syscallas_signal_allowed_2_end;
+extern void * __syscallas_need_emulate_jmp;
 
 int shim_clean (void);
 

@@ -57,6 +57,8 @@ int shim_do_nanosleep (const struct __kernel_timespec * rqtp,
     unsigned long time = rqtp->tv_sec * 1000000L + rqtp->tv_nsec / 1000;
     unsigned long ret = DkThreadDelayExecution(time);
 
+    debug("regs: %p sp: %p stack: %p\n",
+          shim_get_tls()->context.regs, shim_get_tls()->context.sp, &time);
     if (ret < time) {
         if (rmtp) {
             unsigned long remtime = time - ret;
