@@ -5,7 +5,9 @@
 #define __SGX_TLS_H__
 
 struct enclave_tls {
+    struct enclave_tls * self;
     uint64_t enclave_size;
+    uint64_t tls_offset;
     uint64_t tcs_offset;
     uint64_t initial_stack_offset;
     uint64_t sig_stack_low;
@@ -39,6 +41,14 @@ extern uint64_t dummy_debug_variable;
         __asm__ ("movq %q0, %%gs:%c1":: "r" (value),                \
              "i" (offsetof(struct enclave_tls, member)));           \
     } while (0)
+
+static inline struct enclave_tls * get_enclave_tls(void)
+{
+        struct enclave_tls * __self;
+        asm ("movq %%gs:%c1, %q0": "=r" (__self)
+             : "i" (offsetof(struct enclave_tls, self)));
+        return __self;
+}
 # endif
 
 #endif /* __SGX_TLS_H__ */
