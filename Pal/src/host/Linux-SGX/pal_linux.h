@@ -103,6 +103,7 @@ extern char __text_start, __text_end, __data_start, __data_end;
 typedef struct { char bytes[32]; } sgx_checksum_t;
 typedef struct { char bytes[16]; } sgx_stub_t;
 
+void init_xsave_size(uint64_t xfrm);
 int init_trusted_files (void);
 
 /* Function: load_trusted_file
