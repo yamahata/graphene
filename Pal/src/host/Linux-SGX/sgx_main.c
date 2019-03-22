@@ -418,7 +418,9 @@ int initialize_enclave (struct pal_enclave * enclave)
 
             for (int t = 0 ; t < enclave->thread_num ; t++) {
                 struct enclave_tls * gs = data + pagesize * t;
-                gs->self = (struct enclave_tls *)(
+                memset(gs, 0, pagesize);
+                assert(sizeof(*gs) <= pagesize);
+                gs->common.self = (PAL_TCB *)(
                     tls_area->addr + pagesize * t + enclave_secs.baseaddr);
                 gs->enclave_size = enclave->size;
                 gs->tls_offset = tls_area->addr + pagesize * t;
