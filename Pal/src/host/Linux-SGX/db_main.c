@@ -221,6 +221,8 @@ void pal_linux_main(const char ** arguments, const char ** environments,
     SET_HANDLE_TYPE(first_thread, thread);
     first_thread->thread.tcs =
         enclave_base + GET_ENCLAVE_TLS(tcs_offset);
+    SET_ENCLAVE_TLS(self,
+                    GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, (__pal_control.first_thread = first_thread));
 
     /* call main function */
