@@ -75,8 +75,8 @@ void pal_start_thread (void)
     int (*callback) (void *) = thread_param->callback;
     const void * param = thread_param->param;
     free(thread_param);
-    new_thread->param = NULL;
-    SET_ENCLAVE_TLS(self,
+    new_thread->thread.param = NULL;
+    SET_ENCLAVE_TLS(common.self,
                     GET_ENCLAVE_TLS(tls_offset) + enclave_base);
     SET_ENCLAVE_TLS(thread, new_thread);
     callback((void *) param);
