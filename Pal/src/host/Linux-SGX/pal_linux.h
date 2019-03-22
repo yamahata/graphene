@@ -104,6 +104,8 @@ typedef struct { char bytes[32]; } sgx_checksum_t;
 typedef struct { char bytes[16]; } sgx_stub_t;
 
 void init_xsave_size(uint64_t xfrm);
+void save_xregs(PAL_XREGS_STATE * xsave_area);
+void restore_xregs(const PAL_XREGS_STATE * xsave_area);
 int init_trusted_files (void);
 
 /* Function: load_trusted_file
