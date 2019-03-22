@@ -220,13 +220,40 @@ extern struct pal_enclave_config {
 #endif
 
 #ifdef IN_ENCLAVE
-#define SGX_DBG(class, fmt...) \
-    do { if ((class) & DBG_LEVEL) printf(fmt); } while (0)
+static inline PAL_IDX current_tid(void)
+{
+    struct enclave_tls * tls = get_enclave_tls();
+    if (tls && tls->thread)
+        return tls->thread->tid;
+    return 0;
+}
+
+#define SGX_DBG(class, fmt, ...)                                        \
+    do {                                                                \
+        if ((class) & DBG_LEVEL) {                                      \
+            PAL_IDX tid = current_tid();                                \
+            printf("[trts %d:%ld] %s:%d:%s " fmt,                       \
+                   tid, get_enclave_tls()->common.host_tid,             \
+                   __FILE__, __LINE__, __func__, ##__VA_ARGS__);        \
+        }                                                               \
+    } while (0)
 #else
 int pal_printf (const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
-#define SGX_DBG(class, fmt...) \
-    do { if ((class) & DBG_LEVEL) pal_printf(fmt); } while (0)
+#define SGX_DBG(class, fmt, ...)                                        \
+    do {                                                                \
+        if ((class) & DBG_LEVEL) {                                      \
+            int tid = INLINE_SYSCALL(gettid, 0);                        \
+            pal_printf("[urts %d] %s:%d:%s " fmt,                       \
+                       tid, __FILE__, __LINE__, __func__, ##__VA_ARGS__); \
+        }                                                               \
+    } while (0)
+
+#define __SGX_DBG(class, fmt...)                \
+    do {                                        \
+        if ((class) & DBG_LEVEL)                \
+            pal_printf(fmt);                    \
+    } while (0)
 #endif
 
 #endif /* PAL_LINUX_H */
