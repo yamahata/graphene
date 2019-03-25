@@ -140,8 +140,51 @@ enclave_entry:
 #endif
 
 .Lhandle_exception:
+	# %rbx SGX_GPR base address from TLS
 	movq SGX_GPR_RSP(%rbx), %rsi
-	subq $(SGX_CONTEXT_SIZE + REDZONE_SIZE), %rsi
+
+	/*
+	 * when interrupted at __restore_sgx_context_need_jmp_emulate
+	 * the next jmp needs to be executed. otherwise the saved
+	 * rip at -REDZONE-8(%rsp) will be lost.
+	 * before clobbering it, emulate jmp instruction.
+	 */
+	movq SGX_GPR_RIP(%rbx), %rax
+	cmpq %rax, __restore_sgx_context_need_jmp_emulate(%rip)
+	jne .Lstack_check
+	movq - REDZONE_SIZE - 8(%rsi), %rax
+	movq %rax, SGX_GPR_RIP(%rbx)
+
+.Lstack_check:
+	movq %gs:SGX_SIG_STACK_LOW, %rax
+	cmpq %rax, %rsi
+	jle .Lout_of_signal_stack
+	movq %gs:SGX_SIG_STACK_HIGH, %rax
+	cmpq %rax, %rsi
+	jge .Lout_of_signal_stack
+	jmp .Lon_signal_stack
+
+.Lout_of_signal_stack:
+	movq %gs:SGX_SIG_STACK_HIGH, %rsi
+        /* staring from new stack. there is no red zone used.
+         * offset it below calculation */
+	addq $REDZONE_SIZE, %rsi
+
+#define STACK_FRAME_SUB \
+	(SGX_CONTEXT_SIZE + REDZONE_SIZE + PAL_FP_XSTATE_MAGIC2_SIZE)
+.Lon_signal_stack:
+	movq xsave_size@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	addl $STACK_FRAME_SUB, %eax
+	subq %rax, %rsi
+	# Align xsave area to 64 bytes after sgx_context_t
+	# SGX_CONTEXT_SIZE = sizeof(sgx_context_t) = 144
+	# PAL_XSTATE_ALIGN = 64
+	# SGX_CONTEXT_XSTATE_ALIGN_SUB=SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN = 16
+	# unfortunatley gas doesn't understand
+	# $(SGX_CONTEXT_SIZE % PAL_XSTATE_ALIGN)
+	andq $~(PAL_XSTATE_ALIGN - 1), %rsi
+	subq $SGX_CONTEXT_XSTATE_ALIGN_SUB, %rsi
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
@@ -188,9 +231,13 @@ enclave_entry:
 	movq %rsi, SGX_GPR_RSP(%rbx)
 	movq %rsi, SGX_GPR_RSI(%rbx)
 
+	/* TODO: save EXINFO in MISC region */
+
 	# new RIP is the exception handler
 	leaq _DkExceptionHandler(%rip), %rdi
 	movq %rdi, SGX_GPR_RIP(%rbx)
+
+	# FP registers are saved on entry of _DkExceptionHandler()
 
 	# clear the registers
 	xorq %rdi, %rdi
@@ -206,6 +253,20 @@ enclave_entry:
 	.type sgx_ocall, @function
 
 sgx_ocall:
+	##
+	## %rbp => *sgx_context_t = %gx:SGX_STACK
+	## xsave area
+	##    xregs
+	## sgx_context_t:
+	##   rax = 0: place holder
+	##   rcx
+	##   ...
+	##   rflags
+	##   rip
+	## previous rbp
+	## previous rip
+	##
+
 	pushq %rbp
 	movq %rsp, %rbp
 
@@ -229,12 +290,20 @@ sgx_ocall:
 	pushq %rbx
 	pushq %rdx
 	pushq %rcx
-	# no RAX
+	pushq $0        # place holder for RAX
 
 	movq %rsp, %rbp
-	subq $XSAVE_SIZE,  %rsp
+	movq xsave_size@GOTPCREL(%rip), %rax
+	movl (%rax), %eax
+	subq %rax,  %rsp
+	subq $PAL_FP_XSTATE_MAGIC2_SIZE, %rsp
 	andq $XSAVE_ALIGN, %rsp
-	fxsave (%rsp)
+
+	pushq %rdi
+	movq %rsp, %rdi
+	addq $8, %rdi	/* adjust pushq %rdi above */
+	callq save_xregs
+	popq %rdi
 
 	pushq %rbp
 	movq %rsp, %gs:SGX_STACK
@@ -244,6 +313,11 @@ sgx_ocall:
 .Lexception_handler:
 
 .Leexit:
+	movq %rdi, %rbx
+	movq SYNTHETIC_STATE@GOTPCREL(%rip), %rdi
+	callq restore_xregs
+	movq %rbx, %rdi
+
 	xorq %rdx, %rdx
 	xorq %r8, %r8
 	xorq %r9, %r9
@@ -268,7 +342,10 @@ sgx_ocall:
 	# RDI - return value
 	# RSI - external event (if there is any)
 
-	movq %rdi, %rax
+	## sgx_context_t::rax = %rdi
+	movq %gs:SGX_STACK, %rax
+	movq (%rax), %rax # %rax = &sgx_context_t::rax
+	movq %rdi, (%rax) # return value
 
 	# restore FSBASE if necessary
 	movq %gs:SGX_FSBASE, %rbx
@@ -276,23 +353,30 @@ sgx_ocall:
 	je .Lno_fsbase
 	WRFSBASE_RBX
 .Lno_fsbase:
+	cmpq $0, %rsi
+	je .Lno_external_event
 
+	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
+	movq %rax, %rsi	## %rsi = sgx_context_t * uc
+
+	## %rdx = PAL_XREGS_STATE * xregs_state
+	movq %gs:SGX_STACK, %rdx
+	addq $8, %rdx
+
+	movq %gs:SGX_SIG_STACK_HIGH, %rsp
+	callq _DkHandleExternalEvent
+
+
+.Lno_external_event:
 	# restore the stack
 	movq %gs:SGX_STACK, %rsp
 
 	popq %rbp
-	fxrstor (%rsp)
+	movq %rsp, %rdi
+	callq restore_xregs
 	movq %rbp, %rsp
 
-	cmpq $0, %rsi
-	je .Lno_external_event
-	pushq %rax
-	movq %rsi, %rdi
-	movq %rsp, %rsi
-	callq _DkHandleExternalEvent
 	popq %rax
-.Lno_external_event:
-
 	popq %rcx
 	popq %rdx
 	popq %rbx
@@ -311,6 +395,50 @@ sgx_ocall:
 	addq $8, %rsp	# skip RIP
 	popq %rbp
 	retq
+
+	# void __restore_sgx_context (sgx_context_t *uc)
+	# __attribute__((noreturn))
+	.global __restore_sgx_context
+	.type __restore_sgx_context, @function
+__restore_sgx_context:
+	mov %rdi, %rsp
+
+	/* store saved %rip at -REDZONE-8(%saved rsp) */
+	mov SGX_CONTEXT_RIP(%rsp), %rax
+	mov SGX_CONTEXT_RSP(%rsp), %rcx
+	mov %rax, - REDZONE_SIZE - 8(%rcx)
+
+	pop %rax
+	pop %rcx
+	pop %rdx
+	pop %rbx
+	add $8, %rsp /* don't pop RSP yet */
+	pop %rbp
+	pop %rsi
+	pop %rdi
+	pop %r8
+	pop %r9
+	pop %r10
+	pop %r11
+	pop %r12
+	pop %r13
+	pop %r14
+	pop %r15
+	popfq
+
+	/* In user context, sysret nor iret isn't usable.
+	 * the following two instructions need to be atomic.
+	 */
+	mov -13 * 8(%rsp), %rsp
+	/* If interrupted here,
+	 * signal handler can clobber the saved rip at -REDZONE_SIZE-8(%rsp).
+	 * So singla handler emulates the following jmp instruciton before
+	 * using stack.
+	 * see .Lhandle_exception.
+	 */
+__restore_sgx_context_need_jmp_emulate:
+	jmp * - REDZONE_SIZE - 8(%rsp)
+
 
 	# void save_xregs(uint64_t xsave_area)
 	.global save_xregs
