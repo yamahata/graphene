@@ -5,6 +5,16 @@
 	.byte 0xf3, 0x48, 0x0f, 0xae, 0xd3 /* WRFSBASE %RBX */
 .endm
 
+.macro SGX_TLS_FLAGS_SET_EXECUTING_BIT reg
+	movq %gs:SGX_SELF, \reg
+	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(\reg)
+.endm
+
+.macro SGX_TLS_FLAGS_CLEAR_EXECUTING_BIT reg
+	movq %gs:SGX_SELF, \reg
+	lock btrq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(\reg)
+.endm
+
 	.extern ecall_table
 	.extern enclave_ecall_pal_main
 
@@ -92,6 +102,7 @@ enclave_entry:
 	movq %rdi, %rsi
 	xorq %rdi, %rdi
 	movl SGX_GPR_EXITINFO(%rbx), %edi
+	movl $0, SGX_GPR_EXITINFO(%rbx) ## don't carry this info for next resume
 	testl $0x80000000, %edi
 	jnz .Lhandle_exception
 
@@ -140,9 +151,7 @@ enclave_entry:
 #endif
 
 .Lhandle_exception_raise:
-	movq %gs:SGX_SELF, %rax
-	addq $SGX_FLAGS, %rax
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%rax)
+	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
 	jnc .Lhandle_exception__
 
 	cmpq $PAL_EVENT_QUIT, %rdi
@@ -154,17 +163,13 @@ enclave_entry:
 	jmp .Lhandle_exception__
 
 .Lpend_async_event:
-	addq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
 	# %rdi = $PAL_EVENT_QUIT or $PAL_EVENT_SUSPEND or $PAL_EVENT_RESUME
-	lock btsq %rdi, (%rax)
-	subq $(SGX_PENDING_ASYNC_EVENT - SGX_FLAGS), %rax
-	lock btsq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%rax)
+	lock btsq %rdi, SGX_PENDING_ASYNC_EVENT(%rax)
+	lock btsq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, SGX_FLAGS(%rax)
 	jmp .Lhandle_exception_out
 
 .Lhandle_exception:
-	movq %gs:SGX_SELF, %rax
-	addq $SGX_FLAGS, %rax
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%rax)
+	SGX_TLS_FLAGS_SET_EXECUTING_BIT %rax
 .Lhandle_exception__:
 	# %rbx SGX_GPR base address from TLS
 	movq SGX_GPR_RSP(%rbx), %rsi
@@ -193,7 +198,7 @@ enclave_entry:
 	jle .Lout_of_signal_stack
 	movq %gs:SGX_SIG_STACK_HIGH, %rax
 	cmpq %rax, %rsi
-	jge .Lout_of_signal_stack
+	jg .Lout_of_signal_stack
 	jmp .Lon_signal_stack
 
 .Lout_of_signal_stack:
@@ -222,7 +227,7 @@ enclave_entry:
 
 	# we have exitinfo in RDI, swap with the one on GPR
 	# and dump into the context
-	xchgq %rdi, SGX_GPR_RDI(%rbx)
+	xchgq %rdi, SGX_GPR_RDI(%rbx) # 1st argument for _DkExceptionHandler()
 	movq %rdi, SGX_CONTEXT_RDI(%rsi)
 
 	# dump the rest of context
@@ -263,7 +268,7 @@ enclave_entry:
 	movq %rdi, SGX_CONTEXT_RIP(%rsi)
 
 	movq %rsi, SGX_GPR_RSP(%rbx)
-	movq %rsi, SGX_GPR_RSI(%rbx)
+	movq %rsi, SGX_GPR_RSI(%rbx) ## 2nd argument for _DkExceptionHandler()
 
 	/* TODO: save EXINFO in MISC region */
 
@@ -391,28 +396,52 @@ sgx_ocall:
 	je .Lno_fsbase
 	WRFSBASE_RBX
 .Lno_fsbase:
+	movq %rax, %rbx		# save stack pointer to callee saved %rbx
+#if 0
+	/* TODO: mask event on entry of sgx_ocall, and reap it here
+	 * see sgx_ocall above
+	 */
 	cmpq $0, %rsi
 	je .Lno_external_event
+#endif
 
 	movq %rsi, %rdi	## %rdi = PAL_NUM event <- RSI
 	movq %rax, %rsi	## %rsi = sgx_context_t * uc
 	movq %rax, %rdx
 	addq $SGX_CONTEXT_SIZE, %rdx ## %rdx = PAL_XREGS_STATE * xregs_state
 
+	## use signal stack. check if we're already on signal stack
+	movq %gs:SGX_SIG_STACK_LOW, %rax
+	cmpq %rax, %rbx
+	jle .Lout_of_signal_stack_external_event
+	movq %gs:SGX_SIG_STACK_HIGH, %rax
+	cmpq %rax, %rbx
+	jge .Lout_of_signal_stack_external_event
+
+	##  we're on signal stack. allocate our own stack on top of it
+	movq %rbx, %rsp
+	subq $REDZONE_SIZE, %rsp
+	jmp .Lcall_dk_handle_external_event
+
+.Lout_of_signal_stack_external_event:
 	movq %gs:SGX_SIG_STACK_HIGH, %rsp
+
+.Lcall_dk_handle_external_event:
 	callq _DkHandleExternalEvent
+	## NOTREACHED
 
-
+#if 0
 .Lno_external_event:
 	# restore the stack
-	movq %gs:SGX_STACK, %rsp
+	movq %rbx, %rsp
 
 	movq %rsp, %rdi
 	addq $SGX_CONTEXT_SIZE, %rdi
 	callq restore_xregs
 
-	movq %gs:SGX_STACK, %rdi
-	jmp __restore_sgx_context
+	movq %rbx, %rdi
+	jmp __restore_sgx_context_retry
+#endif
 
 	# void __restore_sgx_context (sgx_context_t *uc)
 	# __attribute__((noreturn))
@@ -497,12 +526,10 @@ __restore_sgx_context_retry:
 
 	popq %r14
 
-	movq %gs:SGX_SELF, %r15
-	addq $SGX_FLAGS, %r15
-	lock btrq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%r15)
+	SGX_TLS_FLAGS_CLEAR_EXECUTING_BIT %r15
 	/* There is a window from here to movq below where stack
 	 * can grow. */
-	lock btrq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, (%r15)
+	lock btrq $SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, SGX_FLAGS(%r15)
 	jc .Ltry_again
 
 	popq %r15
@@ -522,7 +549,7 @@ __restore_sgx_context_retry_need_jmp_emulate:
 	jmp * - REDZONE_SIZE - 8(%rsp)
 
 .Ltry_again:
-	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, (%r15)
+	lock btsq $SGX_TLS_FLAGS_EVENT_EXECUTING_BIT, SGX_FLAGS(%r15)
 	subq $15 * 8, %rsp 	# revert popq
 	movq %rsp, %rdi
 	callq _DkExceptionHandlerMore
