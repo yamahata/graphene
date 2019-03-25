@@ -129,8 +129,8 @@ __asm__ (".type arch_exception_return_asm, @function;"
 
 extern void arch_exception_return (void) __asm__ ("arch_exception_return_asm");
 
-void _DkExceptionRealHandler (int event, PAL_NUM arg, struct pal_frame * frame,
-                              PAL_CONTEXT * context)
+static void _DkExceptionRealHandler (
+    int event, PAL_NUM arg, struct pal_frame * frame, PAL_CONTEXT * context)
 {
     if (frame) {
         frame = __alloca(sizeof(struct pal_frame));
@@ -164,44 +164,16 @@ void _DkExceptionRealHandler (int event, PAL_NUM arg, struct pal_frame * frame,
 
 static void restore_sgx_context (sgx_context_t * uc)
 {
-    /* prepare the return address */
-    // uc->rsp -= 8;
-    // *(uint64_t *) uc->rsp = uc->rip;
-
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
-    if (uc->rsp - REDZONE_SIZE - 8 != (unsigned long)&uc->rip) {
-        assert((uintptr_t)(uc + 1) + REDZONE_SIZE <= uc->rsp);
-        *(unsigned long *)(uc->rsp - REDZONE_SIZE - 8) = uc->rip;
-    }
-
-    /* now pop the stack */
-    __asm__ volatile (
-                  "mov %0, %%rsp\n"
-                  "pop %%rax\n"
-                  "pop %%rcx\n"
-                  "pop %%rdx\n"
-                  "pop %%rbx\n"
-                  "add $8, %%rsp\n" /* don't pop RSP yet */
-                  "pop %%rbp\n"
-                  "pop %%rsi\n"
-                  "pop %%rdi\n"
-                  "pop %%r8\n"
-                  "pop %%r9\n"
-                  "pop %%r10\n"
-                  "pop %%r11\n"
-                  "pop %%r12\n"
-                  "pop %%r13\n"
-                  "pop %%r14\n"
-                  "pop %%r15\n"
-                  "popfq\n"
-                  "mov -13 * 8(%%rsp), %%rsp\n"
-                  "jmp * -" XSTRINGIFY(REDZONE_SIZE) " - 8(%%rsp)\n"
-                  :: "r"(uc) : "memory");
+    restore_xregs((uint64_t)(uc + 1));
+    __restore_sgx_context(uc);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
 {
+    save_xregs((uint64_t)(uc + 1));
+
 #if SGX_HAS_FSGSBASE == 0
     /* set the FS first if necessary */
     uint64_t fsbase = (uint64_t) GET_ENCLAVE_TLS(fsbase);
@@ -354,7 +326,8 @@ void _DkExceptionReturn (void * event)
     restore_sgx_context(&uc);
 }
 
-void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc)
+void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
+                             PAL_XREGS_STATE * xregs_state)
 {
     struct pal_frame * frame = get_frame(uc);
 
