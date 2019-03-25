@@ -42,26 +42,28 @@
 typedef struct exception_event {
     PAL_IDX             event_num;
     PAL_CONTEXT *       context;
+    PAL_BOL             retry_event;
 } PAL_EVENT;
 
 static void _DkGenericEventTrigger (PAL_IDX event_num, PAL_EVENT_HANDLER upcall,
-                                    PAL_NUM arg, PAL_CONTEXT * context)
+                                    PAL_NUM arg, PAL_CONTEXT * context, PAL_BOL retry_event)
 {
     struct exception_event event;
 
     event.event_num = event_num;
     event.context = context;
+    event.retry_event = retry_event;
 
     (*upcall) ((PAL_PTR) &event, arg, context);
 }
 
 static bool
-_DkGenericSignalHandle (int event_num, PAL_NUM arg, PAL_CONTEXT * context)
+_DkGenericSignalHandle (int event_num, PAL_NUM arg, PAL_CONTEXT * context, PAL_BOL retry_event)
 {
     PAL_EVENT_HANDLER upcall = _DkGetExceptionHandler(event_num);
 
     if (upcall) {
-        _DkGenericEventTrigger(event_num, upcall, arg, context);
+        _DkGenericEventTrigger(event_num, upcall, arg, context, retry_event);
         return true;
     }
 
@@ -77,17 +79,21 @@ PAL_BOL DkInPal (const PAL_CONTEXT * context)
 }
 
 static void restore_sgx_context (sgx_context_t * uc,
-                                 PAL_XREGS_STATE * xregs_state)
+                                 PAL_XREGS_STATE * xregs_state,
+                                 PAL_BOL retry_event)
 {
     SGX_DBG(DBG_E, "uc %p rsp 0x%08lx &rsp: %p rip 0x%08lx &rip: %p\n",
             uc, uc->rsp, &uc->rsp, uc->rip, &uc->rip);
     if (xregs_state == NULL)
         xregs_state = (PAL_XREGS_STATE*)SYNTHETIC_STATE;
     restore_xregs(xregs_state);
-    __restore_sgx_context(uc);
+    if (retry_event)
+        __restore_sgx_context_retry(uc);
+    else
+        __restore_sgx_context(uc);
 }
 
-static void restore_pal_context (sgx_context_t * uc, PAL_CONTEXT * ctx)
+static void restore_pal_context (sgx_context_t * uc, PAL_CONTEXT * ctx, PAL_BOL retry_event)
 {
     uc->rax = ctx->rax;
     uc->rbx = ctx->rbx;
@@ -108,7 +114,7 @@ static void restore_pal_context (sgx_context_t * uc, PAL_CONTEXT * ctx)
     uc->rflags = ctx->efl;
     uc->rip = ctx->rip;
 
-    restore_sgx_context(uc, ctx->fpregs);
+    restore_sgx_context(uc, ctx->fpregs, retry_event);
 }
 
 static void save_pal_context (PAL_CONTEXT * ctx, sgx_context_t * uc,
@@ -160,6 +166,7 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
         uc->rip++;
         return true;
     } else if (instr[0] == 0x0f && instr[1] == 0xa2) {
+        /* cpuid */
         unsigned int values[4];
         if (!_DkCpuIdRetrieve(uc->rax & 0xffffffff,
                               uc->rcx & 0xffffffff, values)) {
@@ -171,6 +178,7 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
             return true;
         }
     } else if (instr[0] == 0x0f && instr[1] == 0x31) {
+        /* rdtsc */
         uc->rip += 2;
         unsigned long high;
         unsigned long low;
@@ -180,6 +188,37 @@ static PAL_BOL handle_ud(sgx_context_t * uc)
         return true;
     }
     return false;
+}
+
+static void _DkExceptionHandlerLoop (PAL_CONTEXT * ctx)
+{
+    struct enclave_tls * tls = get_enclave_tls();
+    do {
+        int event_num = ffsl(GET_ENCLAVE_TLS(pending_async_event));
+        if (event_num-- > 0 &&
+            test_and_clear_bit(event_num, &tls->pending_async_event)) {
+            ctx->err = 0;
+            ctx->trapno = event_num;
+            ctx->oldmask = 0;
+            ctx->cr2 = 0;
+
+            _DkGenericSignalHandle(event_num, 0, ctx, PAL_TRUE);
+            continue;
+        }
+    } while (test_and_clear_bit(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT,
+                                &tls->flags));
+}
+
+void _DkExceptionHandlerMore (sgx_context_t * uc)
+{
+    PAL_XREGS_STATE * xregs_state = (PAL_XREGS_STATE *)(uc + 1);
+    assert((((uintptr_t)xregs_state) % PAL_XSTATE_ALIGN) == 0);
+    save_xregs(xregs_state);
+
+    PAL_CONTEXT ctx;
+    save_pal_context(&ctx, uc, xregs_state);
+    _DkExceptionHandlerLoop(&ctx);
+    restore_pal_context(uc, &ctx, PAL_TRUE);
 }
 
 void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
@@ -214,7 +253,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
             break;
         case SGX_EXCEPTION_VECTOR_UD:
             if (handle_ud(uc)) {
-                restore_sgx_context(uc, xregs_state);
+                restore_sgx_context(uc, xregs_state, PAL_TRUE);
                 /* NOTREACHED */
             }
             event_num = PAL_EVENT_ILLEGAL;
@@ -231,7 +270,7 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
         case SGX_EXCEPTION_VECTOR_DB:
         case SGX_EXCEPTION_VECTOR_BP:
         default:
-            restore_sgx_context(uc, xregs_state);
+            restore_sgx_context(uc, xregs_state, PAL_TRUE);
             return;
         }
     }
@@ -261,10 +300,14 @@ void _DkExceptionHandler (unsigned int exit_info, sgx_context_t * uc)
     ctx.oldmask = 0;
     ctx.cr2 = 0;
 
+    struct enclave_tls * tls = get_enclave_tls();
+    clear_bit(SGX_TLS_FLAGS_ASYNC_EVENT_PENDING_BIT, &tls->flags);
+    clear_bit(event_num, &tls->pending_async_event);
     PAL_NUM arg = 0;
-    _DkGenericSignalHandle(event_num, arg, &ctx);
+    _DkGenericSignalHandle(event_num, arg, &ctx, PAL_TRUE);
 
-    restore_pal_context(uc, &ctx);
+    _DkExceptionHandlerLoop(&ctx);
+    restore_pal_context(uc, &ctx, PAL_TRUE);
 }
 
 void _DkRaiseFailure (int error)
@@ -290,7 +333,7 @@ void _DkExceptionReturn (void * event)
     if (!ctx) {
         return;
     }
-    restore_pal_context(&uc, ctx);
+    restore_pal_context(&uc, ctx, e->retry_event);
 }
 
 void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
@@ -309,7 +352,7 @@ void _DkHandleExternalEvent (PAL_NUM event, sgx_context_t * uc,
     ctx.oldmask = 0;
     ctx.cr2 = 0;
 
-    if (!_DkGenericSignalHandle(event, 0, &ctx)
+    if (!_DkGenericSignalHandle(event, 0, &ctx, PAL_FALSE)
         && event != PAL_EVENT_RESUME)
         _DkThreadExit();
 }
