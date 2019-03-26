@@ -22,6 +22,9 @@ void dummy(void)
     OFFSET_T(TCB_SP, shim_tcb_t, context.sp);
     OFFSET_T(TCB_RET_IP, shim_tcb_t, context.ret_ip);
     OFFSET_T(TCB_REGS, shim_tcb_t, context.regs);
+#ifdef SHIM_SYSCALL_STACK
+    OFFSET_T(TCB_SYSCALL_STACK, shim_tcb_t, syscall_stack);
+#endif
     OFFSET_T(TCB_FLAGS, shim_tcb_t, flags);
 
     /* struct shim_thread */

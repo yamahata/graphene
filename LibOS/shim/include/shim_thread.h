@@ -100,6 +100,10 @@ struct shim_thread {
 #define SHIM_THREAD_EXIT_STACK_SIZE (4096)
     unsigned long stack_canary;
     uint8_t exit_stack[SHIM_THREAD_EXIT_STACK_SIZE];
+#ifdef SHIM_SYSCALL_STACK
+#define SHIM_THREAD_SYSCALL_STACK_SIZE  (16 * 1024)
+    uint8_t syscall_stack[SHIM_THREAD_SYSCALL_STACK_SIZE];
+#endif
 };
 
 DEFINE_LIST(shim_simple_thread);
@@ -212,6 +216,10 @@ void set_cur_thread (struct shim_thread * thread)
             get_thread(thread);
 
         tcb->tp = thread;
+#ifdef SHIM_SYSCALL_STACK
+        tcb->syscall_stack = ALIGN_DOWN_PTR(
+            thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE, 16);
+#endif
         thread->tcb = container_of(tcb, __libc_tcb_t, shim_tcb);
         thread->shim_tcb = tcb;
         tid = thread->tid;

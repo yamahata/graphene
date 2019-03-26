@@ -165,9 +165,15 @@ ret:
 isundef:
 #ifdef DEBUG
         mov %rax, %rdi
-        ## syscall_wrapper requires %rcx preserved
+        ## syscall_wrapper requires %rcx, %r11 preserved
         pushq %rcx
+#ifdef SHIM_SYSCALL_STACK
+        pushq %r11
+#endif
         call *debug_unsupp@GOTPCREL(%rip)
+#ifdef SHIM_SYSCALL_STACK
+        popq %r11
+#endif
         popq %rcx
 #endif
         movq $-38, %rax		# ENOSYS = 38
@@ -281,10 +287,19 @@ __syscallas_signal_allowed_2_end:
          */
 __syscallas_signal_allowed_3_begin:
 syscall_wrapper:
-        ## %rcx is preserved by syscalldb
+        ## %rcx, %r11 are preserved by syscalldb
+#ifdef SHIM_SYSCALL_STACK
+        movq %rsp, %r11
+#else
         subq $REDZONE_SIZE, %rsp
+#endif
+        movq TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_STACK), %rsp
         call *syscalldb@GOTPCREL(%rip)
 __syscall_wrapper_after_syscall:
+#ifdef SHIM_SYSCALL_STACK
+        movq %r11, %rsp
+#else
         addq $REDZONE_SIZE, %rsp
+#endif
         jmp *%rcx       /* syscalldb preserves %rcx */
 __syscallas_signal_allowed_3_end:
