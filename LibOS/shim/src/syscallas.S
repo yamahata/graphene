@@ -134,16 +134,7 @@ isdef:
         /* Translating x86_64 kernel calling convention to user-space
          * calling convention */
         movq %r10, %rcx
-
-        /*
-         * syscalldb doesn't assume 16 bytes alignment.
-	     * 16 align to call C functions.
-          * %r12: calee save
-         */
-        movq %rsp, %r12
-        andq $~15, %rsp
         call *%rbx
-        movq %r12, %rsp
 
 .Lret_nosignal:
         CHECK_SIGNAL_PENDING_BIT
@@ -179,10 +170,7 @@ isundef:
 #ifdef SHIM_SYSCALL_STACK
         pushq %r11
 #endif
-        movq %rsp, %rbx
-        andq $~15, %rsp
         call *debug_unsupp@GOTPCREL(%rip)
-        movq %rbx, %rsp
 #ifdef SHIM_SYSCALL_STACK
         popq %r11
 #endif
