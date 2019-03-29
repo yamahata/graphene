@@ -194,16 +194,45 @@ int shim_do_sigaltstack (const stack_t * ss, stack_t * oss)
     struct shim_thread * cur = get_cur_thread();
     lock(cur->lock);
 
+    stack_t * cur_ss = &cur->signal_altstack;
+
     if (oss)
-        *oss = cur->signal_altstack;
+        *oss = *cur_ss;
+
+    void * sp = shim_get_tls()->context.sp;
+#ifdef SHIM_SYSCALL_STACK
+    shim_tcb_t * tcb = shim_get_tls();
+    if (tcb->context.ret_ip == (void *)&__syscall_wrapper_after_syscall) {
+        assert((void *)tcb->tp->syscall_stack < tcb->context.sp);
+        assert(tcb->context.sp <
+               (void *)tcb->tp->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
+        sp = (void *)tcb->context.regs->r11;
+    }
+#endif
+    if (!(cur_ss->ss_flags & SS_DISABLE) &&
+        sp &&
+        cur_ss->ss_sp <= sp &&
+        sp < cur_ss->ss_sp + cur_ss->ss_size) {
+        if (oss)
+            oss->ss_flags |= SS_ONSTACK;
+        if (ss) {
+            unlock(cur->lock);
+            return -EPERM;
+        }
+    }
 
     if (ss) {
-        if (ss->ss_size < MINSIGSTKSZ) {
-            unlock(cur->lock);
-            return -ENOMEM;
-        }
+        if (ss->ss_flags & SS_DISABLE) {
+            memset(cur_ss, 0, sizeof(*cur_ss));
+            cur_ss->ss_flags = SS_DISABLE;
+        } else {
+            if (ss->ss_size < MINSIGSTKSZ) {
+                unlock(cur->lock);
+                return -ENOMEM;
+            }
 
-        cur->signal_altstack = *ss;
+            *cur_ss = *ss;
+        }
     }
 
     unlock(cur->lock);
