@@ -34,7 +34,7 @@
 
 #include <errno.h>
 
-#define SHIM_DEFAULT_SLEEP 1000
+#define SHIM_DEFAULT_SLEEP (1000 * 1000 * 10)   /* 10sec */
 
 int shim_do_pause (void)
 {
