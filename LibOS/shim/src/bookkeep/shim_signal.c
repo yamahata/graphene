@@ -1061,6 +1061,29 @@ bool deliver_signal_on_sysret(void * stack,
     void (*restorer) (void) = deliver.restorer;
     direct_call_if_sighandler_kill(sig, &signal->info, handler);
 
+#ifdef SHIM_SYSCALL_STACK
+    bool rewind_syscall_stack = false;
+    if (tcb->context.ret_ip == (void *)&__syscall_wrapper_after_syscall) {
+        rewind_syscall_stack = true;
+        debug("syscall stack\n");
+        assert((void *)tcb->tp->syscall_stack < tcb->context.sp);
+        assert(tcb->context.sp <
+               (void *)tcb->tp->syscall_stack +
+               SHIM_THREAD_SYSCALL_STACK_SIZE);
+        /* see syscall_wrapper()
+         * signal frame needs to be created basedon actual user stack frame.
+         * Not on syscall stack.
+         * So emulate switching back to user stack first.
+         */
+        tcb->context.sp = (void *)tcb->context.regs->r11;
+        tcb->context.ret_ip = (void *)tcb->context.regs->rcx;
+        debug("syscall stack regs: %p sp: %p ip: %p stack: %p &tcb %p tcb %p %p\n",
+              tcb->context.regs, tcb->context.sp, tcb->context.ret_ip,
+              stack, &tcb, tcb,
+              &__syscall_wrapper_after_syscall);
+    }
+#endif
+
 #if 0
     struct shim_regs * regs = stack;
     stack += sizeof(*regs);
@@ -1083,6 +1106,21 @@ bool deliver_signal_on_sysret(void * stack,
         sp = aligndown_sigframe(sp);
         stack = sp;
         user_sigframe = stack;
+#ifdef SHIM_SYSCALL_STACK
+    } else if(rewind_syscall_stack) {
+        switch_stack = true;
+
+        regs = tcb->context.regs;
+
+        sp = tcb->context.sp;
+        sp -= REDZONE_SIZE;
+        /* See .Lsignal_pending @ syscallas.S */
+        sp -= sizeof(struct sigframe) + FP_XSTATE_MAGIC2_SIZE + 64;
+        sp -= fpu_xstate_size;
+        sp = aligndown_sigframe(sp);
+        stack = sp;
+        user_sigframe = stack;
+#endif
     } else {
         regs = stack;
         /* move up context.regs on stack*/
