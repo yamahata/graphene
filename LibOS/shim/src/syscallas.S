@@ -201,22 +201,24 @@ __syscallas_signal_allowed_1_end:
         movq fpu_xstate_size@GOTPCREL(%rip), %rbx
         subq (%rbx), %rdi
         andq $(~15), %rdi
-        subq $8, %rdi
 
         movq %rsp, %r11
         movq %rdi, %rsp
+        subq $8, %rsp           # to align 16bytes for below callq
+                                # notice the below pushq beforew callq
         pushfq
         popq %rsi
         movq %rax, %rdx
         pushq %r11
         call *deliver_signal_on_sysret@GOTPCREL(%rip)
         popq %r11
+        addq $8, %rsp
         cmp $0, %rax
+        movq TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR), %rax
         je .Lsignal_not_delivered
         jmp .Lret_signal
 
 .Lsignal_not_delivered:
-        movq TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_NR), %rax
         movq %r11, %rsp
         jmp .Lret_nosignal
 
