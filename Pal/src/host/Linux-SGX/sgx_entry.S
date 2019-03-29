@@ -80,7 +80,10 @@ sgx_entry:
 	leaq ocall_table(%rip), %rbx
 	movq (%rbx,%rdi,8), %rbx
 	movq %rsi, %rdi
+	movq %rsp, %r12
+	andq $~15, %rsp
 	callq *%rbx
+	movq %r12, %rsp
 
 	movq %rax, %rdi
 	# Not interrupted
