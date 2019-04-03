@@ -244,10 +244,10 @@ int initialize_enclave (struct pal_enclave * enclave)
         } ret;                                                      \
     })
 
-    SGX_DBG(DBG_E, "loading %s\n", ENCLAVE_FILENAME);
+    SGX_DBG(DBG_E, "loading \"%s\"\n", ENCLAVE_FILENAME);
     enclave_image = INLINE_SYSCALL(open, 3, ENCLAVE_FILENAME, O_RDONLY, 0);
     if (IS_ERR(enclave_image)) {
-        SGX_DBG(DBG_E, "cannot find %s\n", ENCLAVE_FILENAME);
+        SGX_DBG(DBG_E, "cannot find \"%s\"\n", ENCLAVE_FILENAME);
         return -ERRNO(enclave_image);
     }
 
@@ -639,7 +639,7 @@ int load_manifest (int fd, struct config_store ** config_ptr)
     ret = read_config(config, NULL, &errstring);
 
     if (ret < 0) {
-        SGX_DBG(DBG_E, "can't read manifest: %s\n", errstring);
+        SGX_DBG(DBG_E, "can't read manifest: \"%s\"\n", errstring);
         retval = ret;
         goto finalize;
     }
@@ -704,13 +704,13 @@ static int load_enclave (struct pal_enclave * enclave,
     enclave->manifest = INLINE_SYSCALL(open, 3, manifest_uri + 5,
                                        O_RDONLY|O_CLOEXEC, 0);
     if (IS_ERR(enclave->manifest)) {
-         SGX_DBG(DBG_E, "cannot open manifest %s\n", manifest_uri);
+         SGX_DBG(DBG_E, "cannot open manifest \"%s\"\n", manifest_uri);
          return -EINVAL;
     }
 
     ret = load_manifest(enclave->manifest, &enclave->config);
     if (ret < 0) {
-        SGX_DBG(DBG_E, "invalid manifest: %s\n", manifest_uri);
+        SGX_DBG(DBG_E, "invalid manifest: \"%s\"\n", manifest_uri);
         return -EINVAL;
     }
 
@@ -721,13 +721,13 @@ static int load_enclave (struct pal_enclave * enclave,
         exec_uri = resolve_uri(cfgbuf, &errstring);
         exec_uri_inferred = false;
         if (!exec_uri) {
-            SGX_DBG(DBG_E, "%s: %s\n", errstring, cfgbuf);
+            SGX_DBG(DBG_E, "%s: \"%s\"\n", errstring, cfgbuf);
             return -EINVAL;
         }
     }
 
     if (exec_uri) {
-        SGX_DBG(DBG_E, "exec_uri: %s\n", exec_uri);
+        SGX_DBG(DBG_E, "exec_uri: \"%s\"\n", exec_uri);
         enclave->exec = INLINE_SYSCALL(open, 3,
                                        exec_uri + static_strlen("file:"),
                                        O_RDONLY|O_CLOEXEC, 0);
@@ -738,10 +738,10 @@ static int load_enclave (struct pal_enclave * enclave,
                 // from the manifest file name, but it doesn't exist, and let
                 // the enclave go a bit further.  Go ahead and warn the user,
                 // though.
-                SGX_DBG(DBG_I, "Inferred executable cannot be opened: %s.  This may be ok, or may represent a manifest misconfiguration. This typically represents advanced usage, and if it is not what you intended, try setting the loader.exec field in the manifest.\n", exec_uri);
+                SGX_DBG(DBG_I, "Inferred executable cannot be opened: \"%s\".  This may be ok, or may represent a manifest misconfiguration. This typically represents advanced usage, and if it is not what you intended, try setting the loader.exec field in the manifest.\n", exec_uri);
                 enclave->exec = -1;
             } else {
-                SGX_DBG(DBG_E, "cannot open executable %s\n", exec_uri);
+                SGX_DBG(DBG_E, "cannot open executable \"%s\"\n", exec_uri);
                 return -EINVAL;
             }
         }
@@ -756,18 +756,18 @@ static int load_enclave (struct pal_enclave * enclave,
 
     const char * uri = resolve_uri(cfgbuf, &errstring);
     if (!uri) {
-        SGX_DBG(DBG_E, "%s: %s\n", errstring, cfgbuf);
+        SGX_DBG(DBG_E, "%s: \"%s\"\n", errstring, cfgbuf);
         return -EINVAL;
     }
 
     if (!strcmp_static(uri + strlen(uri) - 4, ".sig")) {
-        SGX_DBG(DBG_E, "Invalid sigstruct file URI as %s\n", cfgbuf);
+        SGX_DBG(DBG_E, "Invalid sigstruct file URI as \"%s\"\n", cfgbuf);
         return -EINVAL;
     }
 
     enclave->sigfile = INLINE_SYSCALL(open, 3, uri + 5, O_RDONLY|O_CLOEXEC, 0);
     if (IS_ERR(enclave->sigfile)) {
-        SGX_DBG(DBG_E, "cannot open sigstruct file %s\n", uri);
+        SGX_DBG(DBG_E, "cannot open sigstruct file \"%s\"\n", uri);
         return -EINVAL;
     }
 
@@ -781,7 +781,7 @@ static int load_enclave (struct pal_enclave * enclave,
                 uri);
         return -EINVAL;
     }
-    SGX_DBG(DBG_I, "token file: %s\n", uri);
+    SGX_DBG(DBG_I, "token file: \"%s\"\n", uri);
 
     /* Initialize the enclave */
     ret = initialize_enclave(enclave);
@@ -879,7 +879,7 @@ int main (int argc, const char ** argv, const char ** envp)
 
     int fd = INLINE_SYSCALL(open, 3, exec_uri + 5, O_RDONLY|O_CLOEXEC, 0);
     if (IS_ERR(fd)) {
-        SGX_DBG(DBG_E, "Executable not found: %s\n", exec_uri);
+        SGX_DBG(DBG_E, "Executable not found: \"%s\"\n", exec_uri);
         SGX_DBG(DBG_E, "USAGE: <pal> [executable|manifest] args ...\n");
         retval = -ERRNO(fd);
         goto finalize;
@@ -928,13 +928,13 @@ int main (int argc, const char ** argv, const char ** envp)
                                     sgx_manifest, -1);
         INLINE_SYSCALL(close, 1, fd);
     } else if (!manifest_uri) {
-        SGX_DBG(DBG_E, "cannot open manifest file: %s\n", sgx_manifest);
+        SGX_DBG(DBG_E, "cannot open manifest file: \"%s\"\n", sgx_manifest);
         goto usage;
     }
 
-    SGX_DBG(DBG_I, "manifest file: %s\n", manifest_uri);
+    SGX_DBG(DBG_I, "manifest file: \"%s\"\n", manifest_uri);
     if (exec_uri)
-        SGX_DBG(DBG_I, "executable file: %s\n", exec_uri);
+        SGX_DBG(DBG_I, "executable file: \"%s\"\n", exec_uri);
     else
         SGX_DBG(DBG_I, "executable file not found\n");
 
