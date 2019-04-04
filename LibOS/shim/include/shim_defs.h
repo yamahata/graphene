@@ -40,4 +40,8 @@
 #define SHIM_TCB_USE_GS             1
 //#undef SHIM_TCB_USE_GS
 
+/* TODO user configuration */
+#define SHIM_SYSCALL_STACK          1
+//#undef SHIM_SYSCALL_STACK
+
 #endif /* _SHIM_DEFS_H_ */
