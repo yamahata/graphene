@@ -88,14 +88,12 @@ int sgx_create_process (const char * uri, int nargs, const char ** args,
             INLINE_SYSCALL(close, 1, proc_fds[1][i]);
 
         rete = INLINE_SYSCALL(dup2, 2, proc_fds[0][0], PROC_INIT_FD);
-        if (IS_ERR(rete))
-            goto out_child;
+        if (!IS_ERR(rete)) {
+            rete = INLINE_SYSCALL(execve, 3, PAL_LOADER, argv, NULL);
 
-        rete = INLINE_SYSCALL(execve, 3, PAL_LOADER, argv, NULL);
-
-        /* shouldn't get to here */
-        SGX_DBG(DBG_E, "unexpected failure of new process\n");
-out_child:
+            /* shouldn't get to here */
+            SGX_DBG(DBG_E, "unexpected failure of new process\n");
+        }
         __asm__ volatile ("hlt");
         return 0;
     }
