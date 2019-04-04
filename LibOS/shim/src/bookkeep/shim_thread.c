@@ -736,6 +736,26 @@ BEGIN_CP_FUNC(running_thread)
         memcpy(new_thread->shim_tcb, thread->shim_tcb, sizeof(shim_tcb_t));
     }
 #endif
+#ifdef SHIM_SYSCALL_STACK
+    shim_tcb_t * shim_tcb = new_thread->shim_tcb;
+    if (shim_tcb &&
+        shim_tcb->context.ret_ip == &__syscall_wrapper_after_syscall) {
+        struct shim_thread * parent_thread = shim_tcb->tp;
+        assert((void*)parent_thread->syscall_stack <
+               (void*)shim_tcb->context.regs);
+        assert((void*)shim_tcb->context.regs <=
+               (void*)parent_thread->syscall_stack +
+               SHIM_THREAD_SYSCALL_STACK_SIZE);
+        memcpy(new_thread->syscall_stack, shim_tcb->tp->syscall_stack,
+               sizeof(new_thread->syscall_stack));
+        new_thread->shim_tcb->context.regs =
+            (struct shim_regs*) (
+                (void*)shim_tcb->context.regs - (void*)shim_tcb->tp->syscall_stack);
+    }
+#endif
+#if !defined(SHIM_TCB_USE_GS) && defined(SHIM_SYSCALL_STACK)
+# error "not implemented."
+#endif
 }
 END_CP_FUNC(running_thread)
     
@@ -747,11 +767,6 @@ static int resume_wrapper (void * param)
     __libc_tcb_t * libc_tcb = (__libc_tcb_t *) thread->tcb;
     assert(libc_tcb);
     shim_tcb_t * tcb = thread->shim_tcb;
-#ifdef SHIM_TCB_USE_GS
-    memcpy(SHIM_GET_TLS(), tcb, sizeof(*tcb));
-    thread->shim_tcb = SHIM_GET_TLS();
-    tcb = thread->shim_tcb;
-#endif
     assert(tcb->context.sp);
 
     thread->in_vm = thread->is_alive = true;
@@ -773,10 +788,35 @@ BEGIN_RS_FUNC(running_thread)
 
     if (!thread->user_tcb)
         CP_REBASE(thread->tcb);
+    shim_tcb_t * shim_tcb = thread->shim_tcb;
 #ifdef SHIM_TCB_USE_GS
-    if (thread->shim_tcb)
-        CP_REBASE(thread->shim_tcb);
+    if (shim_tcb) {
+        CP_REBASE(shim_tcb);
+
+        shim_tcb_t * cur_tcb = SHIM_GET_TLS();
+        memcpy(cur_tcb, shim_tcb, sizeof(*shim_tcb));
+        thread->shim_tcb = cur_tcb;
+        shim_tcb = cur_tcb;
+        debug_setbuf(thread->shim_tcb, false);
+    }
 #endif
+#ifdef SHIM_SYSCALL_STACK
+    if (shim_tcb &&
+        shim_tcb->context.ret_ip == &__syscall_wrapper_after_syscall) {
+        shim_tcb->context.regs =
+            (void*)thread->syscall_stack + (intptr_t)shim_tcb->context.regs;
+        shim_tcb_init_syscall_stack(shim_tcb, thread);
+    }
+#endif
+#if !defined(SHIM_TCB_USE_GS) && defined(SHIM_SYSCALL_STACK)
+# error "not implemented."
+#endif
+
+    if (thread->set_child_tid) {
+        /* CLONE_CHILD_SETTID */
+        *thread->set_child_tid = thread->tid;
+        thread->set_child_tid = NULL;
+    }
 
     thread->signal_logs = malloc(sizeof(struct shim_signal_log) *
                                  NUM_SIGS);
@@ -788,13 +828,6 @@ BEGIN_RS_FUNC(running_thread)
 
         thread->pal_handle = handle;
     } else {
-#ifdef SHIM_TCB_USE_GS
-        if (thread->shim_tcb) {
-            memcpy(SHIM_GET_TLS(), thread->shim_tcb, sizeof(shim_tcb_t));
-            thread->shim_tcb = SHIM_GET_TLS();
-        }
-        debug_setbuf(thread->shim_tcb, false);
-#endif
         __libc_tcb_t * libc_tcb = thread->tcb;
 
         if (libc_tcb) {
@@ -806,6 +839,16 @@ BEGIN_RS_FUNC(running_thread)
             debug_setprefix(tcb);
             debug("after resume, set tcb to %p\n", libc_tcb);
         } else {
+            /* execve case
+             * stack = NULL
+             * stack_top = NULL
+             * frameptr = NULL
+             * tcb = NULL
+             * user_tcb = false
+             * shim_tcb = NULL
+             * in_vm = false
+             */
+            thread->shim_tcb = SHIM_GET_TLS();
             init_tcb(thread->shim_tcb);
             set_cur_thread(thread);
         }

@@ -115,8 +115,10 @@ static int clone_implementation_wrapper(struct clone_args * arg)
     debug("set tcb to %p (stack allocated? %d)\n", my_thread->tcb, stack_allocated);
 
     struct shim_regs regs = *arg->parent->shim_tcb->context.regs;
-    if (my_thread->set_child_tid)
+    if (my_thread->set_child_tid) {
         *(my_thread->set_child_tid) = my_thread->tid;
+        my_thread->set_child_tid = NULL;
+    }
 
     void * stack = arg->stack;
     void * return_pc = arg->return_pc;
@@ -266,7 +268,38 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
             thread->tcb = tcb = self->tcb;
             old_shim_tcb = __alloca(sizeof(shim_tcb_t));
             memcpy(old_shim_tcb, &tcb->shim_tcb, sizeof(shim_tcb_t));
+
+            thread->user_tcb = self->user_tcb;
+            thread->shim_tcb = self->shim_tcb;
         }
+        debug("self %p stack [%p, %p)\n",
+              self,
+              self->syscall_stack,
+              self->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
+        debug("thread %p stack [%p, %p)\n",
+              thread,
+              thread->syscall_stack,
+              thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
+        debug("tcb: regs %p rsp %p rip %p %p stack %p tp %p thread stack [%p, %p) 0x%08lx\n",
+              tcb->shim_tcb.context.regs,
+              tcb->shim_tcb.context.sp,
+              tcb->shim_tcb.context.ret_ip,
+              &__syscall_wrapper_after_syscall,
+              tcb->shim_tcb.syscall_stack,
+              tcb->shim_tcb.tp,
+              thread->syscall_stack,
+              thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE,
+              (void*)tcb->shim_tcb.context.regs - (void*)thread->syscall_stack);
+        debug("shim tcb: regs %p rsp %p rip %p %p %p tp %p thread stack [%p, %p) 0x%08lx\n",
+              thread->shim_tcb->context.regs,
+              thread->shim_tcb->context.sp,
+              thread->shim_tcb->context.ret_ip,
+              &__syscall_wrapper_after_syscall,
+              thread->shim_tcb->syscall_stack,
+              thread->shim_tcb->tp,
+              thread->syscall_stack,
+              thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE,
+              (void*)thread->shim_tcb->context.regs - (void*)thread->syscall_stack);
 
         if (user_stack_addr) {
             struct shim_vma_val vma;
@@ -277,6 +310,7 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
             tcb->shim_tcb.context.ret_ip = get_child_ret_ip(self);
         }
 
+        thread->tgid = thread->tid;
         thread->is_alive = true;
         thread->in_vm = false;
         add_thread(thread);
@@ -285,13 +319,14 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
         if ((ret = do_migrate_process(&migrate_fork, NULL, NULL, thread)) < 0)
             goto failed;
 
-        if (old_shim_tcb)
-            memcpy(&tcb->shim_tcb, old_shim_tcb, sizeof(shim_tcb_t));
-
         lock(thread->lock);
         handle_map = thread->handle_map;
         thread->handle_map = NULL;
+        thread->shim_tcb = NULL;
         unlock(thread->lock);
+
+        if (old_shim_tcb)
+            memcpy(&tcb->shim_tcb, old_shim_tcb, sizeof(shim_tcb_t));
         if (handle_map)
             put_handle_map(handle_map);
 
