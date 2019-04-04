@@ -97,7 +97,7 @@ int shim_do_sigreturn (int __unused)
 #ifdef SHIM_SYSCALL_STACK
     if (tcb->context.ret_ip == (void *)&__syscall_wrapper_after_syscall) {
         assert((void *)tcb->tp->syscall_stack < tcb->context.sp);
-        assert(tcb->context.sp <
+        assert(tcb->context.sp <=
                (void *)tcb->tp->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
         /* see syscall_wrapper(): signal frame is on user stack. */
         user_uc = (void *)tcb->context.regs->r11;
@@ -204,7 +204,7 @@ int shim_do_sigaltstack (const stack_t * ss, stack_t * oss)
     shim_tcb_t * tcb = shim_get_tls();
     if (tcb->context.ret_ip == (void *)&__syscall_wrapper_after_syscall) {
         assert((void *)tcb->tp->syscall_stack < tcb->context.sp);
-        assert(tcb->context.sp <
+        assert(tcb->context.sp <=
                (void *)tcb->tp->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
         sp = (void *)tcb->context.regs->r11;
     }

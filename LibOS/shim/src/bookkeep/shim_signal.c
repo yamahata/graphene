@@ -1065,9 +1065,8 @@ bool deliver_signal_on_sysret(void * stack,
     bool rewind_syscall_stack = false;
     if (tcb->context.ret_ip == (void *)&__syscall_wrapper_after_syscall) {
         rewind_syscall_stack = true;
-        debug("syscall stack\n");
         assert((void *)tcb->tp->syscall_stack < tcb->context.sp);
-        assert(tcb->context.sp <
+        assert(tcb->context.sp <=
                (void *)tcb->tp->syscall_stack +
                SHIM_THREAD_SYSCALL_STACK_SIZE);
         /* see syscall_wrapper()
