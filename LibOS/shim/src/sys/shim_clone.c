@@ -274,7 +274,7 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
         } else {
             thread->tcb = tcb = self->tcb;
             old_shim_tcb = __alloca(sizeof(shim_tcb_t));
-            memcpy(old_shim_tcb, &tcb->shim_tcb, sizeof(shim_tcb_t));
+            memcpy(old_shim_tcb, self->shim_tcb, sizeof(shim_tcb_t));
 
             thread->user_tcb = self->user_tcb;
             thread->shim_tcb = self->shim_tcb;
@@ -287,16 +287,16 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
               thread,
               thread->syscall_stack,
               thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE);
-        debug("tcb: regs %p rsp %p rip %p %p stack %p tp %p thread stack [%p, %p) 0x%08lx\n",
-              tcb->shim_tcb.context.regs,
-              tcb->shim_tcb.context.sp,
-              tcb->shim_tcb.context.ret_ip,
+        debug("self: regs %p rsp %p rip %p %p stack %p tp %p thread stack [%p, %p) 0x%08lx\n",
+              self->shim_tcb->context.regs,
+              self->shim_tcb->context.sp,
+              self->shim_tcb->context.ret_ip,
               &__syscall_wrapper_after_syscall,
-              tcb->shim_tcb.syscall_stack,
-              tcb->shim_tcb.tp,
-              thread->syscall_stack,
-              thread->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE,
-              (void*)tcb->shim_tcb.context.regs - (void*)thread->syscall_stack);
+              self->shim_tcb->syscall_stack,
+              self->shim_tcb->tp,
+              self->syscall_stack,
+              self->syscall_stack + SHIM_THREAD_SYSCALL_STACK_SIZE,
+              (void*)self->shim_tcb->context.regs - (void*)self->syscall_stack);
         debug("shim tcb: regs %p rsp %p rip %p %p %p tp %p thread stack [%p, %p) 0x%08lx\n",
               thread->shim_tcb->context.regs,
               thread->shim_tcb->context.sp,
@@ -313,8 +313,8 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
             lookup_vma(ALIGN_DOWN(user_stack_addr), &vma);
             thread->stack_top = vma.addr + vma.length;
             thread->stack_red = thread->stack = vma.addr;
-            tcb->shim_tcb.context.sp = user_stack_addr;
-            tcb->shim_tcb.context.ret_ip = get_child_ret_ip(self);
+            thread->shim_tcb->context.sp = user_stack_addr;
+            thread->shim_tcb->context.ret_ip = get_child_ret_ip(self);
         }
 
         thread->tgid = thread->tid;
@@ -333,7 +333,7 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
         unlock(thread->lock);
 
         if (old_shim_tcb)
-            memcpy(&tcb->shim_tcb, old_shim_tcb, sizeof(shim_tcb_t));
+            memcpy(self->shim_tcb, old_shim_tcb, sizeof(shim_tcb_t));
         if (handle_map)
             put_handle_map(handle_map);
 
