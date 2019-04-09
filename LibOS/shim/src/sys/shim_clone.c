@@ -183,6 +183,13 @@ int shim_do_clone (int flags, void * user_stack_addr, int * parent_tidptr,
     int * set_parent_tid = NULL;
     int ret = 0;
 
+    /* hack: special vfork case */
+    if (flags == (CLONE_VFORK | CLONE_VM | SIGCHLD) &&
+        user_stack_addr == NULL && parent_tidptr == NULL &&
+        child_tidptr == NULL && tls == NULL) {
+        return shim_do_vfork();
+    }
+
     assert((flags & ~(CLONE_PARENT_SETTID|CLONE_CHILD_SETTID|
                       CLONE_CHILD_CLEARTID|CLONE_SETTLS|
                       CLONE_VM|CLONE_FILES|
