@@ -174,6 +174,11 @@ static inline struct shim_thread * save_shim_thread_self(struct shim_thread * __
 }
 #endif
 
+static inline bool IS_INTERNAL(struct shim_thread *thread)
+{
+    return thread->tid >= INTERNAL_TID_BASE;
+}
+
 void get_thread (struct shim_thread * thread);
 void put_thread (struct shim_thread * thread);
 void get_simple_thread (struct shim_simple_thread * thread);
