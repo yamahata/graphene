@@ -820,7 +820,6 @@ extern void * __syscallas_signal_allowed_2_begin;
 extern void * __syscallas_signal_allowed_2_end;
 extern void * __syscallas_signal_allowed_3_begin;
 extern void * __syscallas_signal_allowed_3_end;
-extern void * __syscallas_need_emulate_jmp;
 extern void * __syscall_wrapper_after_syscall;
 
 int shim_clean (void);
