@@ -261,10 +261,9 @@ __syscallas_signal_allowed_2_begin:
         // skip rsp, rip
         addq $(2 * 8), %rsp
 
-        popfq
-
         /* avoid to clobber red zone */
-        subq $(REDZONE_SIZE + 8), -3 * 8(%rsp)
+        subq $(REDZONE_SIZE + 8), -2 * 8(%rsp)
+        popfq
         movq -3 * 8(%rsp), %rsp
         retq $REDZONE_SIZE
 __syscallas_signal_allowed_2_end:
