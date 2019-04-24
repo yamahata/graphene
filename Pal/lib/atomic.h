@@ -117,7 +117,7 @@ static inline int64_t _atomic_add (int64_t i, struct atomic_int * v)
     int64_t increment = i;
     __asm__ __volatile__(
         "lock ; xadd %0, %1"
-        : "=r"(i), "=m"(v->counter) : "0"(i) : "memory" );
+        : "=r"(i), "=m"(v->counter) : "0"(i) : "memory", "cc");
     return i + increment;
 }
 
@@ -138,7 +138,7 @@ static inline void atomic_inc (struct atomic_int * v)
 {
     __asm__ __volatile__(
         "lock ; incl %0"
-        : "=m"(v->counter) : "m"(v->counter) : "memory" );
+        : "=m"(v->counter) : "m"(v->counter) : "memory", "cc");
 }
 
 /* Atomically substracts 1 from v.  Does not return a value. */
@@ -164,7 +164,7 @@ static inline int64_t cmpxchg(volatile int64_t *p, int64_t t, int64_t s)
 {
     __asm__ __volatile__ (
         "lock ; cmpxchg %3, %1"
-        : "=a"(t), "=m"(*p) : "a"(t), "r"(s) : "memory" );
+        : "=a"(t), "=m"(*p) : "a"(t), "r"(s) : "memory", "cc");
     return t;
 }
 
@@ -195,7 +195,7 @@ static inline bool test_and_set_bit(long nr, volatile unsigned long *addr)
     __asm__ __volatile__("lock btsq %2, %0\n"
                          : "+m"(*addr), "=@ccc"(cc_carry)
                          : "Ir"(nr)
-                         : "memory");
+                         : "memory", "cc");
     return cc_carry;
 }
 
@@ -205,7 +205,7 @@ static inline bool test_and_clear_bit(long nr, volatile unsigned long *addr)
     __asm__ __volatile__("lock btrq %2, %0\n"
                          : "+m"(*addr), "=@ccc"(cc_carry)
                          : "Ir"(nr)
-                         : "memory");
+                         : "memory", "cc");
     return cc_carry;
 }
 
