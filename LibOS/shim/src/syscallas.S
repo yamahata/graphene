@@ -272,6 +272,7 @@ __syscallas_signal_allowed_2_end:
          * syscall_wrapper
          * input:
          * %rcx: return address. instruction rigth after syscall instruction
+         * %r11: rflags if !SHIM_SYSCALL_STACK
          */
 __syscallas_signal_allowed_3_begin:
 syscall_wrapper:
@@ -279,15 +280,20 @@ syscall_wrapper:
 #ifdef SHIM_SYSCALL_STACK
         movq %rsp, %r11
         movq TCB_SEGMENT_REG:(SHIM_TCB_OFFSET + TCB_SYSCALL_STACK), %rsp
+        pushfq
 #else
         subq $REDZONE_SIZE, %rsp
+        pushq %rcx
+        pushq %r11
 #endif
-        call *syscalldb@GOTPCREL(%rip)
+        callq *syscalldb@GOTPCREL(%rip)
 __syscall_wrapper_after_syscall:
 #ifdef SHIM_SYSCALL_STACK
+        popfq
         movq %r11, %rsp
+        jmpq *%rcx
 #else
-        addq $REDZONE_SIZE, %rsp
+        popfq
+        retq $REDZONE_SIZE
 #endif
-        jmp *%rcx       /* syscalldb preserves %rcx */
 __syscallas_signal_allowed_3_end:

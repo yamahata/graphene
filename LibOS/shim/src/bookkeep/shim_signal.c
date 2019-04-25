@@ -473,6 +473,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
              * TODO: check SIGSYS
              */
             context->rcx = (long)rip;
+            context->r11 = context->efl;
             context->rip = (long)&syscall_wrapper;
             // uc->uc_mcontext->gregs[REG_RCX] = (long)rip;
             // uc->uc_mcontext->gregs[REG_RIP] = (long)&syscall_wrapper;
@@ -484,6 +485,7 @@ static void illegal_upcall (PAL_PTR event, PAL_NUM arg, PAL_CONTEXT * context)
              */
             debug("sigill (rip = %p %p)\n", rip, rip + 2);
             context->rcx = (long)rip + 2;
+            context->r11 = context->efl;
             context->rip = (long)&syscall_wrapper;
             // uc->uc_mcontext->gregs[REG_RCX] = (long)rip + 2;
             // uc->uc_mcontext->gregs[REG_RIP] = (long)&syscall_wrapper;
