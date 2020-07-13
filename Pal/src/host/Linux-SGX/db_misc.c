@@ -26,9 +26,6 @@
 #define TSC_REFINE_INIT_TIMEOUT_USECS 10000000L
 
 static int64_t g_tsc_hz = 0;
-static int64_t g_start_tsc = 0;
-static int64_t g_start_usec = 0;
-static PAL_LOCK g_tsc_lock = LOCK_INIT;
 
 /**
  * Initialize the data structures used for date/time emulation.
@@ -40,53 +37,64 @@ void init_tsc(void) {
 }
 
 unsigned long _DkSystemTimeQuery(void) {
+    static int64_t g_start_tsc = 0;
+    static uint64_t g_start_usec = 0;
+    static spinlock_t g_tsc_lock = LOCK_INIT;
+    static uint64_t g_tsc_seq = 0;
+#define G_TSC_SEQ_UPDADING  (1UL)
+
     unsigned long usec = 0;
-    int64_t tsc_usec = 0, tsc_cyc1, tsc_cyc2, tsc_cyc, tsc_diff;
     int ret;
 
-    if (g_tsc_hz > 0) {
-        _DkInternalLock(&g_tsc_lock);
-        if (g_start_tsc > 0 && g_start_usec > 0) {
-            /* calculate the TSC based time */
-            tsc_diff = get_tsc() - g_start_tsc;
-            if (tsc_diff < INT64_MAX / 1000000) {
-                tsc_usec = g_start_usec + (tsc_diff * 1000000 / g_tsc_hz);
-                /* determine whether it needs to be refined periodically */
-                if (tsc_usec < g_start_usec + TSC_REFINE_INIT_TIMEOUT_USECS) {
-                    usec = tsc_usec;
-                }
-            }
-        }
-        _DkInternalUnlock(&g_tsc_lock);
-
-        if (!usec) {
-            /* refresh the baseline usec and TSC to contain the drift */
-            tsc_cyc1 = get_tsc();
-            ret = ocall_gettime(&usec);
-            tsc_cyc2 = get_tsc();
-            if (!ret) {
-                /* the ocall_gettime() is a time consuming operation.   *
-                 * it includes EENTER and EEXIT instructions, our best  *
-                 * estimation is the timestamp obtained in the middle   *
-                 * time point, therefore, the tsc_cyc as baseline will  *
-                 * be calibrated precisely in this way.                 */
-                tsc_cyc = ((tsc_cyc2 - tsc_cyc1) >> 1) + tsc_cyc1;
-                _DkInternalLock(&g_tsc_lock);
-                /* refresh the baseline data if no other thread updated g_start_tsc */
-                if (g_start_tsc < tsc_cyc) {
-                    g_start_usec = usec;
-                    g_start_tsc = tsc_cyc;
-                }
-                _DkInternalUnlock(&g_tsc_lock);
-            } else {
-                _DkRaiseFailure(PAL_ERROR_DENIED);
-            }
-        }
-    } else {
+    if (!g_tsc_hz) {
         /* fallback to gettimeofday syscall */
         ret = ocall_gettime(&usec);
         if (ret)
             _DkRaiseFailure(PAL_ERROR_DENIED);
+        return usec;
+    }
+
+    uint64_t seq_begin = __atomic_load_n(&g_tsc_seq, __ATOMIC_ACQUIRE);
+    if (!(seq_begin & G_TSC_SEQ_UPDADING)) {
+        uint64_t start_usec = __atomic_load_n(&g_start_usec, __ATOMIC_RELAXED);
+        int64_t start_tsc = __atomic_load_n(&g_start_tsc, __ATOMIC_RELAXED);
+        uint64_t seq_end = __atomic_load_n(&g_tsc_seq, __ATOMIC_SEQ_CST);
+        if (seq_begin == seq_end && start_usec > 0 && start_tsc > 0) {
+            /* calculate the TSC based time */
+            int64_t tsc_diff = get_tsc() - start_tsc;
+            /* determine whether it needs to be refined periodically */
+            if (tsc_diff < TSC_REFINE_INIT_TIMEOUT_USECS * g_tsc_hz / 1000000 ) {
+                return start_usec + tsc_diff * 1000000 / g_tsc_hz;
+            }
+        }
+    }
+
+    /* refresh the baseline usec and TSC to contain the drift */
+    int64_t tsc_cyc1 = get_tsc();
+    ret = ocall_gettime(&usec);
+    int64_t tsc_cyc2 = get_tsc();
+
+    if (!ret) {
+        /* the ocall_gettime() is a time consuming operation.   *
+         * it includes EENTER and EEXIT instructions, our best  *
+         * estimation is the timestamp obtained in the middle   *
+         * time point, therefore, the tsc_cyc as baseline will  *
+         * be calibrated precisely in this way.                 */
+        int64_t tsc_cyc = ((tsc_cyc2 - tsc_cyc1) >> 1) + tsc_cyc1;
+        if (!spinlock_trylock(&g_tsc_lock)) {
+            __atomic_add_fetch(&g_tsc_seq, 1, __ATOMIC_ACQUIRE);
+            /* refresh the baseline data if no other thread updated g_start_tsc */
+            uint64_t old_start_usec = __atomic_load_n(&g_start_usec, __ATOMIC_RELAXED);
+            int64_t old_start_tsc = __atomic_load_n(&g_start_tsc, __ATOMIC_RELAXED);
+            if (old_start_usec < usec && old_start_tsc < tsc_cyc) {
+                __atomic_store_n(&g_start_usec, usec, __ATOMIC_RELAXED);
+                __atomic_store_n(&g_start_tsc, tsc_cyc, __ATOMIC_RELAXED);
+            }
+            __atomic_add_fetch(&g_tsc_seq, 1, __ATOMIC_RELEASE);
+            spinlock_unlock(&g_tsc_lock);
+        }
+    } else {
+        _DkRaiseFailure(PAL_ERROR_DENIED);
     }
     return usec;
 }
